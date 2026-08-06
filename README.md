@@ -9,6 +9,36 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 - **Ask AI** — OpenAI-compatible chat; trigger with `?` / `ask `, or as a fallback when nothing matches
 - **Launch at login** — optional startup via Settings
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/01-empty.png" alt="Empty launcher" width="640" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/02-apps.png" alt="App search results" width="640" />
+  <br />
+  <em>Fuzzy app search</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/03-calc.png" alt="Calculator result" width="640" />
+  <br />
+  <em>Inline calculator</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/04-ask.png" alt="Ask AI fallback result" width="640" />
+  <br />
+  <em>Ask AI fallback</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/05-ask-answer.png" alt="Ask AI answer" width="640" />
+  <br />
+  <em>Ask AI answer</em>
+</p>
+
 ## Requirements
 
 - macOS 14+ (Apple Silicon)
