@@ -11,7 +11,7 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 
 ## Requirements
 
-- macOS 14+
+- macOS 14+ (Apple Silicon)
 - Xcode 15+
 
 ## Build & run

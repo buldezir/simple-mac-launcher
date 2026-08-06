@@ -14,12 +14,16 @@ case "${1:-Debug}" in
   *) CONFIG="$1" ;;
 esac
 
-echo "Building SimpleLauncher ($CONFIG)..."
+echo "Building SimpleLauncher ($CONFIG, arm64)..."
 xcodebuild \
   -project "$PROJECT" \
   -scheme "$SCHEME" \
   -configuration "$CONFIG" \
   -derivedDataPath "$DERIVED_DATA" \
+  -arch arm64 \
+  ARCHS=arm64 \
+  ONLY_ACTIVE_ARCH=YES \
+  EXCLUDED_ARCHS=x86_64 \
   build
 
 APP="$DERIVED_DATA/Build/Products/$CONFIG/SimpleLauncher.app"
