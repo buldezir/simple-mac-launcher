@@ -16,9 +16,21 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/02-apps.png" alt="App search results" width="640" />
+  <img src="docs/screenshots/02-apps-app.png" alt="App search for app" width="640" />
   <br />
-  <em>Fuzzy app search</em>
+  <em>Fuzzy app search — <code>app</code></em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/02-apps-dis.png" alt="App search for dis" width="640" />
+  <br />
+  <em>Fuzzy app search — <code>dis</code></em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/02-apps-tab.png" alt="App search for tab" width="640" />
+  <br />
+  <em>Fuzzy app search — <code>tab</code></em>
 </p>
 
 <p align="center">
