@@ -17,17 +17,24 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 ## Build & run
 
 ```sh
+./build.sh
+```
+
+Builds a Debug app under `build/DerivedData/`.
+
+Pass `Release` to build and install to `/Applications`:
+
+```sh
+./build.sh Release
+```
+
+Or open in Xcode:
+
+```sh
 open SimpleLauncher.xcodeproj
 ```
 
 Select the **SimpleLauncher** scheme and press Run.
-
-Or from the command line:
-
-```sh
-xcodebuild -project SimpleLauncher.xcodeproj -scheme SimpleLauncher -configuration Debug build
-open ~/Library/Developer/Xcode/DerivedData/*/Build/Products/Debug/SimpleLauncher.app
-```
 
 The app runs as a menu bar accessory (no Dock icon).
 
@@ -48,9 +55,9 @@ The app runs as a menu bar accessory (no Dock icon).
 
 In Settings, configure:
 
-1. **Endpoint** — e.g. `https://api.openai.com/v1` or `http://localhost:11434/v1`
+1. **Endpoint** — e.g. `https://api.openai.com/v1` or `https://opencode.ai/zen/go/v1/chat/completions`
 2. **API key** — stored in UserDefaults (personal use; no Keychain prompts)
-3. **Model name** — e.g. `gpt-4o-mini`
+3. **Model name** — e.g. `deepseek-v4-flash`
 
 Requests go to `{endpoint}/chat/completions` (OpenAI-compatible streaming).
 
