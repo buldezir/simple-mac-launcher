@@ -7,6 +7,7 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 - **App launcher** — fuzzy search installed apps, open with Return or ⌘1–⌘9
 - **Calculator** — math in the search field, including percentages (`100-20%` → `80`)
 - **Ask AI** — OpenAI-compatible chat; trigger with `?` / `ask `, or as a fallback when nothing matches
+- **Launch at login** — optional startup via Settings
 
 ## Requirements
 
@@ -40,6 +41,7 @@ The app runs as a menu bar accessory (no Dock icon).
 | Ask AI (prefix) | `? your question` or `ask your question` |
 | Ask AI (fallback) | Type something with no app matches → select Ask AI |
 | Settings | Menu bar → Settings…, or **⌘,** |
+| Launch at login | Settings → Launch at login |
 | Dismiss | Esc or click outside |
 
 ### Ask AI settings

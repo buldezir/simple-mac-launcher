@@ -20,6 +20,15 @@ struct SettingsView: View {
             }
 
             Section("Launcher") {
+                Toggle("Launch at login", isOn: $settings.launchAtLogin)
+
+                if settings.launchAtLoginNeedsApproval {
+                    Text("Approval needed in System Settings → General → Login Items.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 LabeledContent("Toggle hotkey", value: "⌥ Space (Alt+Space)")
                 Text("Type to search apps. Math like 100-20%. Ask with ? or ask, or as fallback when nothing matches.")
                     .font(.caption)
@@ -30,5 +39,6 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding()
         .frame(width: 560, height: 480)
+        .onAppear { settings.refreshLaunchAtLogin() }
     }
 }
