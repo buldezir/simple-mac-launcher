@@ -148,6 +148,13 @@ struct SearchView: View {
         case 126: // up
             model.moveSelection(by: -1)
             return true
+        case 36, 76: // return / keypad enter
+            if ai.isAnswerMode {
+                model.handleReturnInAnswerMode()
+            } else {
+                model.activateSelected()
+            }
+            return true
         case 53: // escape
             if model.handleEscape() {
                 return true

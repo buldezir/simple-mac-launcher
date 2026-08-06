@@ -104,7 +104,11 @@ final class LauncherViewModel: ObservableObject {
     // MARK: - Routing
 
     private func handleQueryChange(from oldValue: String) {
-        if ai.isAnswerMode && query != oldValue {
+        // TextField may re-assign the same string on Return; ignore that so
+        // arrow selection isn't reset before activateSelected runs.
+        guard query != oldValue else { return }
+
+        if ai.isAnswerMode {
             ai.exitAnswerMode()
         }
         selectedIndex = 0
