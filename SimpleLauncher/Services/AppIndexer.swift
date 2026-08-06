@@ -56,24 +56,20 @@ final class AppIndexer: ObservableObject {
             guard let enumerator = FileManager.default.enumerator(
                 at: url,
                 includingPropertiesForKeys: [.isApplicationKey],
-                options: [.skipsHiddenFiles]
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
             ) else { continue }
 
             for case let item as URL in enumerator {
                 guard item.pathExtension == "app" else { continue }
-                enumerator.skipDescendants()
 
                 let path = item.path
                 guard !seen.contains(path) else { continue }
                 seen.insert(path)
 
-                let name = item.deletingPathExtension().lastPathComponent
-                let bundle = Bundle(url: item)
                 results.append(
                     AppEntry(
-                        name: name,
-                        url: item,
-                        bundleIdentifier: bundle?.bundleIdentifier
+                        name: item.deletingPathExtension().lastPathComponent,
+                        url: item
                     )
                 )
             }

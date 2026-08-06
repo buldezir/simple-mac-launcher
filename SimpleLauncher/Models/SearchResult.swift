@@ -43,7 +43,6 @@ enum SearchResult: Identifiable, Equatable {
 struct AppEntry: Equatable, Hashable {
     let name: String
     let url: URL
-    let bundleIdentifier: String?
 
     var icon: NSImage {
         NSWorkspace.shared.icon(forFile: url.path)
