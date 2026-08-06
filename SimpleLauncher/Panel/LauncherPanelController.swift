@@ -54,6 +54,7 @@ final class LauncherPanelController {
         let panel = ensurePanel()
         fitPanelToContent()
         position(panel)
+        KeyboardLayoutSwitcher.activateEnglish()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
         NotificationCenter.default.post(name: .launcherPanelDidShow, object: nil)
@@ -64,6 +65,7 @@ final class LauncherPanelController {
         panel?.orderOut(nil)
         stopClickOutsideMonitor()
         model.ai.cancel()
+        KeyboardLayoutSwitcher.restorePrevious()
     }
 
     private func ensurePanel() -> NSPanel {
