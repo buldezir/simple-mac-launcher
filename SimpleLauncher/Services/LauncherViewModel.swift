@@ -73,8 +73,11 @@ final class LauncherViewModel: ObservableObject {
     func activate(_ result: SearchResult) {
         switch result {
         case .app(let app):
-            apps.open(app)
+            // Dismiss immediately; don't wait for the target app to activate.
             NotificationCenter.default.post(name: .launcherShouldHide, object: nil)
+            Task { @MainActor in
+                apps.open(app)
+            }
         case .calculator(_, _, let display):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(display, forType: .string)

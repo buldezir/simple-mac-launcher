@@ -20,8 +20,13 @@ final class LauncherPanelController: NSObject {
     private var resizeStartTime: CFTimeInterval = 0
     private var resizeStartFrame: NSRect = .zero
     private var resizeTargetFrame: NSRect = .zero
+    /// Bumped to cancel an in-flight dismiss animation (e.g. show during hide).
+    private var dismissGeneration = 0
 
     private static let resizeDuration: CFTimeInterval = 0.18
+    /// Alfred-style quick fade + shrink on dismiss.
+    private static let dismissDuration: CFTimeInterval = 0.14
+    private static let dismissScale: CGFloat = 0.94
 
     init(model: LauncherViewModel) {
         self.model = model
@@ -65,9 +70,11 @@ final class LauncherPanelController: NSObject {
     }
 
     func show() {
+        dismissGeneration += 1
         model.resetForShow()
         let panel = ensurePanel()
         stopHeightAnimation()
+        resetPanelAppearance(panel)
         fitPanelToContent(animated: false)
         position(panel)
         KeyboardLayoutSwitcher.activateEnglish()
@@ -79,10 +86,56 @@ final class LauncherPanelController: NSObject {
 
     func hide() {
         stopHeightAnimation()
-        panel?.orderOut(nil)
         stopClickOutsideMonitor()
         model.ai.cancel()
+
+        guard let panel, panel.isVisible else {
+            KeyboardLayoutSwitcher.restorePrevious()
+            return
+        }
+
+        guard let content = panel.contentView, let layer = content.layer else {
+            finishHide(panel)
+            return
+        }
+
+        dismissGeneration += 1
+        let generation = dismissGeneration
+        let scale = Self.dismissScale
+        let bounds = layer.bounds
+        // Scale toward center without touching anchorPoint (AppKit-managed layers).
+        let tx = bounds.width * (1 - scale) / 2
+        let ty = bounds.height * (1 - scale) / 2
+        var transform = CATransform3DMakeTranslation(tx, ty, 0)
+        transform = CATransform3DScale(transform, scale, scale, 1)
+
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(Self.dismissDuration)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeIn))
+        CATransaction.setCompletionBlock { [weak self] in
+            Task { @MainActor in
+                guard let self, self.dismissGeneration == generation else { return }
+                self.finishHide(panel)
+            }
+        }
+        layer.opacity = 0
+        layer.transform = transform
+        CATransaction.commit()
+    }
+
+    private func finishHide(_ panel: NSPanel) {
+        panel.orderOut(nil)
+        resetPanelAppearance(panel)
         KeyboardLayoutSwitcher.restorePrevious()
+    }
+
+    private func resetPanelAppearance(_ panel: NSPanel) {
+        guard let content = panel.contentView, let layer = content.layer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.opacity = 1
+        layer.transform = CATransform3DIdentity
+        CATransaction.commit()
     }
 
     private func ensurePanel() -> NSPanel {

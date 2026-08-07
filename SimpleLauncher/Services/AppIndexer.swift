@@ -37,7 +37,11 @@ final class AppIndexer: ObservableObject {
     }
 
     func open(_ app: AppEntry) {
-        NSWorkspace.shared.open(app.url)
+        // Async so the launcher can dismiss without waiting for the target app.
+        NSWorkspace.shared.openApplication(
+            at: app.url,
+            configuration: NSWorkspace.OpenConfiguration()
+        )
     }
 
     nonisolated private static func scanApps() -> [AppEntry] {
