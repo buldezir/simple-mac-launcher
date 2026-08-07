@@ -17,6 +17,13 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                SecureField("Tavily API Key (optional)", text: $settings.tavilyAPIKey)
+                    .textFieldStyle(.roundedBorder)
+                Text("When set, Ask AI gets web_search and web_fetch via Tavily. Requires a model that supports tool calling. Free tier: tavily.com")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section("Launcher") {
@@ -44,7 +51,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 560, height: 540)
+        .frame(width: 560, height: 620)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
 }

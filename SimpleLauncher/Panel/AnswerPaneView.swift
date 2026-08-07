@@ -1,14 +1,16 @@
+import AppKit
 import SwiftUI
 
 struct AnswerPaneView: View {
     let answer: String
     let isStreaming: Bool
     let errorMessage: String?
+    var statusText: String = "Thinking…"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(isStreaming ? "Thinking…" : "Answer", systemImage: "sparkles")
+                Label(isStreaming ? statusText : "Answer", systemImage: "sparkles")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -26,19 +28,16 @@ struct AnswerPaneView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     } else if answer.isEmpty && isStreaming {
                         Text(" ")
-                    } else if let attributed = try? AttributedString(
-                        markdown: answer.isEmpty ? " " : answer,
-                        options: AttributedString.MarkdownParsingOptions(
-                            interpretedSyntax: .full
-                        )
-                    ) {
-                        Text(attributed)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
                     } else {
-                        Text(answer)
+                        Text(AnswerMarkdown.attributedString(from: answer))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
+                            .multilineTextAlignment(.leading)
+                            .lineSpacing(2)
+                            .environment(\.openURL, OpenURLAction { url in
+                                NSWorkspace.shared.open(url)
+                                return .handled
+                            })
                     }
                 }
                 .font(.system(size: 14))

@@ -6,7 +6,7 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 
 - **App launcher** — fuzzy search installed apps, open with Return or ⌘1–⌘9
 - **Calculator** — math in the search field, including percentages (`100-20%` → `80`)
-- **Ask AI** — OpenAI-compatible chat; trigger with `?` / `ask `, or as a fallback when nothing matches
+- **Ask AI** — OpenAI-compatible chat; trigger with `?` / `ask `, or as a fallback when nothing matches. Optional [Tavily](https://tavily.com) web search when a key is set
 - **Launch at login** — optional startup via Settings
 
 ## Screenshots
@@ -87,9 +87,10 @@ In Settings, configure:
 
 1. **Endpoint** — e.g. `https://api.openai.com/v1` or `https://opencode.ai/zen/go/v1/chat/completions`
 2. **API key** — stored in UserDefaults (personal use; no Keychain prompts)
-3. **Model name** — e.g. `deepseek-v4-flash`
+3. **Model name** — e.g. `deepseek-v4-flash` (tool calling required for web search)
+4. **Tavily API key** (optional) — enables `web_search` and `web_fetch`; free tier at [tavily.com](https://tavily.com)
 
-Requests go to `{endpoint}/chat/completions` (OpenAI-compatible streaming).
+Requests go to `{endpoint}/chat/completions` (OpenAI-compatible streaming). When Tavily is configured, Ask AI may call `web_search` / `web_fetch` (up to a few rounds) before answering.
 
 AI answers appear in an inline markdown pane under the search field. **Return** copies the plain-text answer; **Esc** exits answer mode.
 

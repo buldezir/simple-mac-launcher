@@ -8,6 +8,7 @@ final class SettingsStore: ObservableObject {
     private let endpointKey = "ai.endpoint"
     private let modelKey = "ai.model"
     private let apiKeyKey = "ai.apiKey"
+    private let tavilyAPIKeyKey = "ai.tavilyAPIKey"
     private let showMenuBarIconKey = "launcher.showMenuBarIcon"
 
     private var isSyncingLaunchAtLogin = false
@@ -22,6 +23,11 @@ final class SettingsStore: ObservableObject {
 
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: apiKeyKey) }
+    }
+
+    /// Optional Tavily key. When set, Ask AI can call `web_search`.
+    @Published var tavilyAPIKey: String {
+        didSet { UserDefaults.standard.set(tavilyAPIKey, forKey: tavilyAPIKeyKey) }
     }
 
     @Published var showMenuBarIcon: Bool {
@@ -43,10 +49,15 @@ final class SettingsStore: ObservableObject {
             && !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    var isTavilyConfigured: Bool {
+        !tavilyAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private init() {
         endpoint = UserDefaults.standard.string(forKey: endpointKey) ?? "https://api.openai.com/v1"
         modelName = UserDefaults.standard.string(forKey: modelKey) ?? "gpt-4o-mini"
         apiKey = UserDefaults.standard.string(forKey: apiKeyKey) ?? ""
+        tavilyAPIKey = UserDefaults.standard.string(forKey: tavilyAPIKeyKey) ?? ""
         if UserDefaults.standard.object(forKey: showMenuBarIconKey) == nil {
             showMenuBarIcon = true
         } else {

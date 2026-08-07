@@ -105,7 +105,8 @@ struct SearchView: View {
             AnswerPaneView(
                 answer: ai.answer,
                 isStreaming: ai.isStreaming,
-                errorMessage: ai.errorMessage
+                errorMessage: ai.errorMessage,
+                statusText: ai.statusText
             )
         } else if model.results.isEmpty {
             Text(emptyMessage)
