@@ -1,18 +1,31 @@
 import AppKit
 import Combine
+import QuartzCore
 import SwiftUI
 
 @MainActor
-final class LauncherPanelController {
+final class LauncherPanelController: NSObject {
     private var panel: NSPanel?
     private var hostingView: NSHostingView<SearchView>?
     private let model: LauncherViewModel
     private var hideObserver: NSObjectProtocol?
     private var clickMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
+    private var pendingFit: DispatchWorkItem?
+    private var lastFittedSize: NSSize = .zero
+    /// Screen maxY of the panel — kept stable across height changes so the
+    /// search field doesn't jump when results shrink or grow.
+    private var anchoredMaxY: CGFloat?
+    private var resizeDisplayLink: CADisplayLink?
+    private var resizeStartTime: CFTimeInterval = 0
+    private var resizeStartFrame: NSRect = .zero
+    private var resizeTargetFrame: NSRect = .zero
+
+    private static let resizeDuration: CFTimeInterval = 0.18
 
     init(model: LauncherViewModel) {
         self.model = model
+        super.init()
         hideObserver = NotificationCenter.default.addObserver(
             forName: .launcherShouldHide,
             object: nil,
@@ -27,7 +40,8 @@ final class LauncherPanelController {
             .merge(with: model.ai.objectWillChange)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.fitPanelToContent()
+                // Wait until @Published values + SwiftUI layout commit before measuring.
+                self?.scheduleFitPanelToContent(animated: true)
             }
             .store(in: &cancellables)
     }
@@ -39,6 +53,7 @@ final class LauncherPanelController {
         if let clickMonitor {
             NSEvent.removeMonitor(clickMonitor)
         }
+        resizeDisplayLink?.invalidate()
     }
 
     func toggle() {
@@ -52,7 +67,8 @@ final class LauncherPanelController {
     func show() {
         model.resetForShow()
         let panel = ensurePanel()
-        fitPanelToContent()
+        stopHeightAnimation()
+        fitPanelToContent(animated: false)
         position(panel)
         KeyboardLayoutSwitcher.activateEnglish()
         NSApp.activate(ignoringOtherApps: true)
@@ -62,6 +78,7 @@ final class LauncherPanelController {
     }
 
     func hide() {
+        stopHeightAnimation()
         panel?.orderOut(nil)
         stopClickOutsideMonitor()
         model.ai.cancel()
@@ -86,7 +103,8 @@ final class LauncherPanelController {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false // SwiftUI draws the soft shadow; window shadow is square
-        panel.animationBehavior = .utilityWindow
+        // Prevent system utility-window chrome animations from shifting the panel.
+        panel.animationBehavior = .none
 
         let root = SearchView(model: model)
         let hosting = NSHostingView(rootView: root)
@@ -100,21 +118,81 @@ final class LauncherPanelController {
         }
         hostingView = hosting
         self.panel = panel
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: panel,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let panel = self.panel, self.resizeDisplayLink?.isPaused != false else { return }
+                self.anchoredMaxY = panel.frame.maxY
+            }
+        }
+
         return panel
     }
 
-    private func fitPanelToContent() {
+    private func scheduleFitPanelToContent(animated: Bool) {
+        pendingFit?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.fitPanelToContent(animated: animated)
+        }
+        pendingFit = work
+        // Next turn: property updates applied and SwiftUI has laid out.
+        DispatchQueue.main.async(execute: work)
+    }
+
+    private func fitPanelToContent(animated: Bool) {
         guard let panel, let hostingView else { return }
-        hostingView.invalidateIntrinsicContentSize()
+
+        // Measure the settled (non-animating) SwiftUI layout.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            hostingView.invalidateIntrinsicContentSize()
+        }
+        hostingView.layoutSubtreeIfNeeded()
+
         let size = hostingView.fittingSize
         let width = max(size.width, 640)
         let height = max(size.height, 72)
-        var frame = panel.frame
         let maxHeight = (NSScreen.main?.visibleFrame.height ?? 900) * 0.55
         let cappedHeight = min(height, maxHeight)
-        frame.origin.y += frame.size.height - cappedHeight
-        frame.size = NSSize(width: width, height: cappedHeight)
-        panel.setFrame(frame, display: true)
+        let targetSize = NSSize(width: width, height: cappedHeight)
+
+        // Selection / no-op updates otherwise thrash setFrame every keystroke.
+        if abs(targetSize.width - lastFittedSize.width) < 0.5,
+           abs(targetSize.height - lastFittedSize.height) < 0.5 {
+            return
+        }
+        lastFittedSize = targetSize
+
+        // Prefer the in-flight animation target's top so rapid typing doesn't
+        // compound mid-animation frame samples into vertical drift.
+        let currentMaxY: CGFloat
+        if resizeDisplayLink != nil {
+            currentMaxY = anchoredMaxY ?? resizeTargetFrame.maxY
+        } else {
+            currentMaxY = panel.frame.maxY
+            anchoredMaxY = currentMaxY
+        }
+
+        let targetFrame = NSRect(
+            x: panel.frame.origin.x,
+            y: currentMaxY - cappedHeight,
+            width: width,
+            height: cappedHeight
+        )
+
+        let heightDelta = abs(panel.frame.height - cappedHeight)
+        let shouldAnimate = animated && panel.isVisible && heightDelta >= 6
+        if shouldAnimate {
+            startHeightAnimation(to: targetFrame)
+        } else {
+            stopHeightAnimation()
+            panel.setFrame(targetFrame, display: true)
+        }
     }
 
     private func position(_ panel: NSPanel) {
@@ -122,8 +200,63 @@ final class LauncherPanelController {
         let visible = screen.visibleFrame
         let size = panel.frame.size
         let x = visible.midX - size.width / 2
-        let y = visible.midY + visible.height * 0.15 - size.height / 2
+        // Anchor by the top edge so later height changes don't re-center the window.
+        let topY = visible.midY + visible.height * 0.15 + size.height / 2
+        let y = topY - size.height
         panel.setFrameOrigin(NSPoint(x: x, y: y))
+        anchoredMaxY = panel.frame.maxY
+    }
+
+    // MARK: - Top-anchored height animation
+
+    private func startHeightAnimation(to target: NSRect) {
+        guard let panel else { return }
+
+        resizeStartFrame = panel.frame
+        resizeTargetFrame = target
+        anchoredMaxY = target.maxY
+        resizeStartTime = CACurrentMediaTime()
+
+        if resizeDisplayLink == nil {
+            let link = panel.displayLink(target: self, selector: #selector(handleResizeTick))
+            link.add(to: .main, forMode: .common)
+            resizeDisplayLink = link
+        }
+        resizeDisplayLink?.isPaused = false
+    }
+
+    private func stopHeightAnimation() {
+        resizeDisplayLink?.isPaused = true
+    }
+
+    @objc private func handleResizeTick(_ link: CADisplayLink) {
+        guard let panel else {
+            stopHeightAnimation()
+            return
+        }
+
+        let elapsed = CACurrentMediaTime() - resizeStartTime
+        let progress = min(1, elapsed / Self.resizeDuration)
+        // Ease in-out cubic
+        let t = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - pow(-2 * progress + 2, 3) / 2
+
+        let maxY = anchoredMaxY ?? resizeTargetFrame.maxY
+        let height = resizeStartFrame.height + (resizeTargetFrame.height - resizeStartFrame.height) * t
+        let width = resizeStartFrame.width + (resizeTargetFrame.width - resizeStartFrame.width) * t
+        let frame = NSRect(
+            x: resizeTargetFrame.origin.x,
+            y: maxY - height,
+            width: width,
+            height: height
+        )
+        panel.setFrame(frame, display: true)
+
+        if progress >= 1 {
+            panel.setFrame(resizeTargetFrame, display: true)
+            stopHeightAnimation()
+        }
     }
 
     private func startClickOutsideMonitor() {

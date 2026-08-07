@@ -28,6 +28,10 @@ struct SearchView: View {
             panelCard
         }
         .padding(36)
+        // Hug content for intrinsic sizing, but top-align when the panel is
+        // temporarily taller mid-resize (keeps the search field pinned).
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background {
             KeyEventHandler { event in
                 handleKey(event)
@@ -79,35 +83,9 @@ struct SearchView: View {
 
             Divider()
 
-            if ai.isAnswerMode {
-                AnswerPaneView(
-                    answer: ai.answer,
-                    isStreaming: ai.isStreaming,
-                    errorMessage: ai.errorMessage
-                )
-            } else if model.results.isEmpty {
-                Text(emptyMessage)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-            } else {
-                VStack(spacing: 2) {
-                    ForEach(Array(model.results.enumerated()), id: \.element.id) { index, result in
-                        ResultRowView(
-                            result: result,
-                            isSelected: index == model.selectedIndex,
-                            shortcutHint: index < 9 ? "⌘\(index + 1)" : nil
-                        )
-                        .id(result.id)
-                        .onTapGesture {
-                            model.activateIndex(index)
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-            }
+            // Layout must update immediately (no SwiftUI height animation) so the
+            // panel can top-anchor resize without the search field drifting.
+            resultsBody
         }
         .frame(width: 640)
         .background {
@@ -118,6 +96,39 @@ struct SearchView: View {
         .overlay {
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        }
+    }
+
+    @ViewBuilder
+    private var resultsBody: some View {
+        if ai.isAnswerMode {
+            AnswerPaneView(
+                answer: ai.answer,
+                isStreaming: ai.isStreaming,
+                errorMessage: ai.errorMessage
+            )
+        } else if model.results.isEmpty {
+            Text(emptyMessage)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+        } else {
+            VStack(spacing: 2) {
+                ForEach(Array(model.results.enumerated()), id: \.element.id) { index, result in
+                    ResultRowView(
+                        result: result,
+                        isSelected: index == model.selectedIndex,
+                        shortcutHint: index < 9 ? "⌘\(index + 1)" : nil
+                    )
+                    .id(result.id)
+                    .onTapGesture {
+                        model.activateIndex(index)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
         }
     }
 
