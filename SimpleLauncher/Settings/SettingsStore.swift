@@ -8,6 +8,7 @@ final class SettingsStore: ObservableObject {
     private let endpointKey = "ai.endpoint"
     private let modelKey = "ai.model"
     private let apiKeyKey = "ai.apiKey"
+    private let showMenuBarIconKey = "launcher.showMenuBarIcon"
 
     private var isSyncingLaunchAtLogin = false
 
@@ -21,6 +22,10 @@ final class SettingsStore: ObservableObject {
 
     @Published var apiKey: String {
         didSet { UserDefaults.standard.set(apiKey, forKey: apiKeyKey) }
+    }
+
+    @Published var showMenuBarIcon: Bool {
+        didSet { UserDefaults.standard.set(showMenuBarIcon, forKey: showMenuBarIconKey) }
     }
 
     @Published var launchAtLogin: Bool {
@@ -42,6 +47,11 @@ final class SettingsStore: ObservableObject {
         endpoint = UserDefaults.standard.string(forKey: endpointKey) ?? "https://api.openai.com/v1"
         modelName = UserDefaults.standard.string(forKey: modelKey) ?? "gpt-4o-mini"
         apiKey = UserDefaults.standard.string(forKey: apiKeyKey) ?? ""
+        if UserDefaults.standard.object(forKey: showMenuBarIconKey) == nil {
+            showMenuBarIcon = true
+        } else {
+            showMenuBarIcon = UserDefaults.standard.bool(forKey: showMenuBarIconKey)
+        }
         launchAtLogin = false
         refreshLaunchAtLogin()
     }

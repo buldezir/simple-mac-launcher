@@ -20,6 +20,12 @@ struct SettingsView: View {
             }
 
             Section("Launcher") {
+                Toggle("Show menu bar icon", isOn: $settings.showMenuBarIcon)
+                Text("Open the app again while it’s running to show Settings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Toggle("Launch at login", isOn: $settings.launchAtLogin)
 
                 if settings.launchAtLoginNeedsApproval {
@@ -38,7 +44,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 560, height: 480)
+        .frame(width: 560, height: 540)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
 }
