@@ -24,6 +24,7 @@ final class AppIndexer: ObservableObject {
         guard !trimmed.isEmpty else { return [] }
 
         let scored: [(AppEntry, Int)] = apps.compactMap { app in
+            guard FileManager.default.fileExists(atPath: app.url.path) else { return nil }
             guard let score = FuzzyMatcher.score(query: trimmed, in: app.name) else { return nil }
             return (app, score)
         }

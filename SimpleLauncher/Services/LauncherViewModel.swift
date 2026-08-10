@@ -51,6 +51,8 @@ final class LauncherViewModel: ObservableObject {
         query = ""
         ai.exitAnswerMode()
         selectedIndex = 0
+        // Rescan so installs/uninstalls since launch aren't stuck in memory.
+        apps.refresh()
         rebuildResults()
     }
 
