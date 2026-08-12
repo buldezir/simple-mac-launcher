@@ -58,10 +58,12 @@ final class AppIndexer: ObservableObject {
 
         for dir in directories {
             let url = URL(fileURLWithPath: dir)
+            // Do not use .skipsHiddenFiles: Safari.app is a cryptex symlink in
+            // /Applications that macOS marks hidden, so it would be skipped.
             guard let enumerator = FileManager.default.enumerator(
                 at: url,
                 includingPropertiesForKeys: [.isApplicationKey],
-                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+                options: [.skipsPackageDescendants]
             ) else { continue }
 
             for case let item as URL in enumerator {
