@@ -24,6 +24,14 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Stepper(value: $settings.aiHistoryLimit, in: SettingsStore.aiHistoryLimitRange) {
+                    Text("Keep last \(settings.aiHistoryLimit) AI prompts")
+                }
+                Text("Stored on this Mac. Type /h in the launcher to browse. Set to 0 to disable.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section("Launcher") {
@@ -51,7 +59,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 560, height: 620)
+        .frame(width: 560, height: 680)
         .onAppear { settings.refreshLaunchAtLogin() }
     }
 }

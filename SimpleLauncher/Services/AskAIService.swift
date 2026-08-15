@@ -11,10 +11,13 @@ final class AskAIService: ObservableObject {
 
     private var task: Task<Void, Never>?
     private let settings: SettingsStore
+    private let history: AIHistoryStore
     private let maxToolRounds = 3
+    private var currentPrompt: String = ""
 
-    init(settings: SettingsStore = .shared) {
+    init(settings: SettingsStore = .shared, history: AIHistoryStore = .shared) {
         self.settings = settings
+        self.history = history
     }
 
     func ask(_ prompt: String) {
@@ -22,6 +25,7 @@ final class AskAIService: ObservableObject {
         let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
+        currentPrompt = trimmed
         isAnswerMode = true
         answer = ""
         errorMessage = nil
@@ -73,6 +77,13 @@ final class AskAIService: ObservableObject {
         answer = ""
         errorMessage = nil
         statusText = "Thinking…"
+        currentPrompt = ""
+    }
+
+    private func finishSuccessfulAnswer() {
+        isStreaming = false
+        guard errorMessage == nil, !answer.isEmpty, !currentPrompt.isEmpty else { return }
+        history.record(prompt: currentPrompt, answer: answer)
     }
 
     // MARK: - Agent loop
@@ -115,7 +126,7 @@ final class AskAIService: ObservableObject {
             )
 
             if turn.toolCalls.isEmpty {
-                await MainActor.run { self.isStreaming = false }
+                await MainActor.run { self.finishSuccessfulAnswer() }
                 return
             }
 
@@ -151,7 +162,7 @@ final class AskAIService: ObservableObject {
             messages: messages,
             tools: nil
         )
-        await MainActor.run { self.isStreaming = false }
+        await MainActor.run { self.finishSuccessfulAnswer() }
     }
 
     private func executeToolCall(_ call: ToolCall, tavilyAPIKey: String?) async throws -> String {

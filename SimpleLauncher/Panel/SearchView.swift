@@ -61,11 +61,7 @@ struct SearchView: View {
                     .font(.system(size: 20, weight: .regular))
                     .focused($queryFocused)
                     .onSubmit {
-                        if ai.isAnswerMode {
-                            model.handleReturnInAnswerMode()
-                        } else {
-                            model.activateSelected()
-                        }
+                        model.handleReturn()
                     }
 
                 if !model.query.isEmpty {
@@ -109,6 +105,21 @@ struct SearchView: View {
                 statusText: ai.statusText,
                 maxContentHeight: model.maxAnswerHeight
             )
+        } else if case .historyDetail(let entry) = model.overlayMode {
+            AnswerPaneView(
+                answer: entry.answer,
+                isStreaming: false,
+                errorMessage: nil,
+                heading: "History",
+                headingImage: "clock",
+                question: entry.prompt,
+                maxContentHeight: model.maxAnswerHeight
+            )
+        } else if model.isShowingHistoryList {
+            HistoryPaneView(
+                model: model,
+                maxContentHeight: model.maxAnswerHeight
+            )
         } else if model.results.isEmpty {
             Text(emptyMessage)
                 .font(.system(size: 13))
@@ -135,8 +146,14 @@ struct SearchView: View {
     }
 
     private var emptyMessage: String {
+        if let input = SlashInput.parse(model.query) {
+            if input.token.isEmpty {
+                return "Type a command, e.g. /h for history"
+            }
+            return "No commands match"
+        }
         if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Type to search apps, calculate (100-20%), or ask AI with ? or ask"
+            return "Type to search apps, calculate (100-20%), ask AI with ? or ask, or / for commands"
         }
         return "No results"
     }
@@ -148,25 +165,25 @@ struct SearchView: View {
            digit.isNumber {
             let number = Int(String(digit)) ?? -1
             let index = number == 0 ? 9 : number - 1
-            if index >= 0 {
+            if index >= 0, !model.isShowingAnswerPane {
                 model.activateIndex(index)
-                return true
             }
+            return true
         }
 
         switch event.keyCode {
         case 125: // down
-            model.moveSelection(by: 1)
+            if !model.isShowingAnswerPane {
+                model.moveSelection(by: 1)
+            }
             return true
         case 126: // up
-            model.moveSelection(by: -1)
+            if !model.isShowingAnswerPane {
+                model.moveSelection(by: -1)
+            }
             return true
         case 36, 76: // return / keypad enter
-            if ai.isAnswerMode {
-                model.handleReturnInAnswerMode()
-            } else {
-                model.activateSelected()
-            }
+            model.handleReturn()
             return true
         case 53: // escape
             if model.handleEscape() {

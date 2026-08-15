@@ -25,6 +25,9 @@
 		A1000000000000000000000E /* ResultRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* ResultRowView.swift */; };
 		A1000000000000000000000F /* AnswerPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* AnswerPaneView.swift */; };
 		A10000000000000000000015 /* AnswerMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* AnswerMarkdown.swift */; };
+		A10000000000000000000016 /* SlashCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* SlashCommands.swift */; };
+		A10000000000000000000017 /* AIHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* AIHistoryStore.swift */; };
+		A10000000000000000000018 /* HistoryPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HistoryPaneView.swift */; };
 		A10000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -47,6 +50,9 @@
 		A2000000000000000000000E /* ResultRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultRowView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* AnswerPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerPaneView.swift; sourceTree = "<group>"; };
 		A20000000000000000000015 /* AnswerMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerMarkdown.swift; sourceTree = "<group>"; };
+		A20000000000000000000016 /* SlashCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommands.swift; sourceTree = "<group>"; };
+		A20000000000000000000017 /* AIHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIHistoryStore.swift; sourceTree = "<group>"; };
+		A20000000000000000000018 /* HistoryPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryPaneView.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000012 /* SimpleLauncher.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SimpleLauncher.entitlements; sourceTree = "<group>"; };
@@ -105,6 +111,7 @@
 				A2000000000000000000000E /* ResultRowView.swift */,
 				A2000000000000000000000F /* AnswerPaneView.swift */,
 				A20000000000000000000015 /* AnswerMarkdown.swift */,
+				A20000000000000000000018 /* HistoryPaneView.swift */,
 			);
 			path = Panel;
 			sourceTree = "<group>";
@@ -117,6 +124,7 @@
 				A20000000000000000000006 /* CalculatorEngine.swift */,
 				A20000000000000000000007 /* AskAIService.swift */,
 				A20000000000000000000014 /* TavilySearchService.swift */,
+				A20000000000000000000017 /* AIHistoryStore.swift */,
 				A20000000000000000000008 /* LauncherViewModel.swift */,
 			);
 			path = Services;
@@ -144,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000003 /* SearchResult.swift */,
+				A20000000000000000000016 /* SlashCommands.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -235,6 +244,9 @@
 				A1000000000000000000000E /* ResultRowView.swift in Sources */,
 				A1000000000000000000000F /* AnswerPaneView.swift in Sources */,
 				A10000000000000000000015 /* AnswerMarkdown.swift in Sources */,
+				A10000000000000000000016 /* SlashCommands.swift in Sources */,
+				A10000000000000000000017 /* AIHistoryStore.swift in Sources */,
+				A10000000000000000000018 /* HistoryPaneView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -9,7 +9,11 @@ final class SettingsStore: ObservableObject {
     private let modelKey = "ai.model"
     private let apiKeyKey = "ai.apiKey"
     private let tavilyAPIKeyKey = "ai.tavilyAPIKey"
+    private let aiHistoryLimitKey = "ai.historyLimit"
     private let showMenuBarIconKey = "launcher.showMenuBarIcon"
+
+    static let aiHistoryLimitDefault = 20
+    static let aiHistoryLimitRange = 0...100
 
     private var isSyncingLaunchAtLogin = false
 
@@ -28,6 +32,18 @@ final class SettingsStore: ObservableObject {
     /// Optional Tavily key. When set, Ask AI can call `web_search`.
     @Published var tavilyAPIKey: String {
         didSet { UserDefaults.standard.set(tavilyAPIKey, forKey: tavilyAPIKeyKey) }
+    }
+
+    /// How many completed AI prompts to retain for `/h` history. `0` disables storage.
+    @Published var aiHistoryLimit: Int {
+        didSet {
+            let clamped = Self.clampedHistoryLimit(aiHistoryLimit)
+            if clamped != aiHistoryLimit {
+                aiHistoryLimit = clamped
+                return
+            }
+            UserDefaults.standard.set(aiHistoryLimit, forKey: aiHistoryLimitKey)
+        }
     }
 
     @Published var showMenuBarIcon: Bool {
@@ -58,6 +74,13 @@ final class SettingsStore: ObservableObject {
         modelName = UserDefaults.standard.string(forKey: modelKey) ?? "gpt-4o-mini"
         apiKey = UserDefaults.standard.string(forKey: apiKeyKey) ?? ""
         tavilyAPIKey = UserDefaults.standard.string(forKey: tavilyAPIKeyKey) ?? ""
+        if UserDefaults.standard.object(forKey: aiHistoryLimitKey) == nil {
+            aiHistoryLimit = Self.aiHistoryLimitDefault
+        } else {
+            aiHistoryLimit = Self.clampedHistoryLimit(
+                UserDefaults.standard.integer(forKey: aiHistoryLimitKey)
+            )
+        }
         if UserDefaults.standard.object(forKey: showMenuBarIconKey) == nil {
             showMenuBarIcon = true
         } else {
@@ -65,6 +88,10 @@ final class SettingsStore: ObservableObject {
         }
         launchAtLogin = false
         refreshLaunchAtLogin()
+    }
+
+    static func clampedHistoryLimit(_ value: Int) -> Int {
+        min(max(value, aiHistoryLimitRange.lowerBound), aiHistoryLimitRange.upperBound)
     }
 
     func refreshLaunchAtLogin() {

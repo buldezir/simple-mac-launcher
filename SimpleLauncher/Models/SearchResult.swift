@@ -5,6 +5,8 @@ enum SearchResult: Identifiable, Equatable {
     case app(AppEntry)
     case calculator(expression: String, value: Double, display: String)
     case askAI(prompt: String)
+    case slashCommand(SlashCommand)
+    case historyEntry(AIHistoryEntry)
 
     var id: String {
         switch self {
@@ -14,6 +16,10 @@ enum SearchResult: Identifiable, Equatable {
             return "calc:\(expression)=\(display)"
         case .askAI(let prompt):
             return "ai:\(prompt)"
+        case .slashCommand(let command):
+            return "slash:\(command.id)"
+        case .historyEntry(let entry):
+            return "hist:\(entry.id.uuidString)"
         }
     }
 
@@ -25,6 +31,10 @@ enum SearchResult: Identifiable, Equatable {
             return "= \(display)"
         case .askAI(let prompt):
             return "Ask AI: \(prompt)"
+        case .slashCommand(let command):
+            return command.resultTitle
+        case .historyEntry(let entry):
+            return entry.prompt
         }
     }
 
@@ -36,6 +46,11 @@ enum SearchResult: Identifiable, Equatable {
             return expression
         case .askAI:
             return "Send to configured AI endpoint"
+        case .slashCommand(let command):
+            return command.subtitle
+        case .historyEntry(let entry):
+            let preview = entry.answerPreview
+            return preview.isEmpty ? entry.relativeDate : "\(entry.relativeDate) · \(preview)"
         }
     }
 }

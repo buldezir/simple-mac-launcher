@@ -6,12 +6,16 @@ struct AnswerPaneView: View {
     let isStreaming: Bool
     let errorMessage: String?
     var statusText: String = "Thinking…"
+    var heading: String? = nil
+    var headingImage: String = "sparkles"
+    var question: String? = nil
+    var footer: String = "⏎ Copy  ·  Esc Back"
     var maxContentHeight: CGFloat = 360
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(isStreaming ? statusText : "Answer", systemImage: "sparkles")
+                Label(headerTitle, systemImage: headingImage)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -19,6 +23,13 @@ struct AnswerPaneView: View {
                     ProgressView()
                         .controlSize(.small)
                 }
+            }
+
+            if let question, !question.isEmpty {
+                Text(question)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
             }
 
             ScrollView {
@@ -46,11 +57,16 @@ struct AnswerPaneView: View {
             }
             .frame(maxHeight: maxContentHeight)
 
-            Text("⏎ Copy  ·  Esc Back")
+            Text(footer)
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var headerTitle: String {
+        if let heading, !heading.isEmpty { return heading }
+        return isStreaming ? statusText : "Answer"
     }
 }

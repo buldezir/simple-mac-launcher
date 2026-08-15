@@ -61,6 +61,16 @@ struct ResultRowView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.purple)
                 .frame(width: 28, height: 28)
+        case .slashCommand(let command):
+            Image(systemName: command.systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 28, height: 28)
+        case .historyEntry:
+            Image(systemName: "text.bubble")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.purple)
+                .frame(width: 28, height: 28)
         }
     }
 }

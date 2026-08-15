@@ -16,6 +16,15 @@ final class LauncherViewModel: ObservableObject {
     let apps: AppIndexer
     let ai: AskAIService
     let settings: SettingsStore
+    let history: AIHistoryStore
+
+    enum OverlayMode: Equatable {
+        case none
+        case history
+        case historyDetail(AIHistoryEntry)
+    }
+
+    @Published private(set) var overlayMode: OverlayMode = .none
 
     private var prefixAskTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
@@ -23,14 +32,17 @@ final class LauncherViewModel: ObservableObject {
     init(
         apps: AppIndexer? = nil,
         ai: AskAIService? = nil,
-        settings: SettingsStore? = nil
+        settings: SettingsStore? = nil,
+        history: AIHistoryStore? = nil
     ) {
         let resolvedApps = apps ?? AppIndexer()
         let resolvedSettings = settings ?? .shared
-        let resolvedAI = ai ?? AskAIService(settings: resolvedSettings)
+        let resolvedHistory = history ?? .shared
+        let resolvedAI = ai ?? AskAIService(settings: resolvedSettings, history: resolvedHistory)
         self.apps = resolvedApps
         self.ai = resolvedAI
         self.settings = resolvedSettings
+        self.history = resolvedHistory
         resolvedApps.refresh()
         rebuildResults()
 
@@ -47,10 +59,31 @@ final class LauncherViewModel: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        resolvedHistory.$entries
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if self.overlayMode != .none {
+                    self.rebuildResults()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    var isShowingAnswerPane: Bool {
+        if ai.isAnswerMode { return true }
+        if case .historyDetail = overlayMode { return true }
+        return false
+    }
+
+    var isShowingHistoryList: Bool {
+        overlayMode == .history
     }
 
     func resetForShow() {
         query = ""
+        overlayMode = .none
         ai.exitAnswerMode()
         selectedIndex = 0
         // Rescan so installs/uninstalls since launch aren't stuck in memory.
@@ -88,11 +121,28 @@ final class LauncherViewModel: ObservableObject {
             NotificationCenter.default.post(name: .launcherShouldHide, object: nil)
         case .askAI(let prompt):
             ai.ask(prompt)
+        case .slashCommand(let command):
+            query = "/\(command.primaryToken)"
+        case .historyEntry(let entry):
+            overlayMode = .historyDetail(entry)
+        }
+    }
+
+    func handleReturn() {
+        if isShowingAnswerPane {
+            handleReturnInAnswerMode()
+        } else {
+            activateSelected()
         }
     }
 
     func handleReturnInAnswerMode() {
-        let text = ai.answer
+        let text: String
+        if case .historyDetail(let entry) = overlayMode {
+            text = entry.answer
+        } else {
+            text = ai.answer
+        }
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
@@ -100,6 +150,15 @@ final class LauncherViewModel: ObservableObject {
     }
 
     func handleEscape() -> Bool {
+        if case .historyDetail = overlayMode {
+            overlayMode = .history
+            rebuildResults()
+            return true
+        }
+        if overlayMode == .history {
+            query = ""
+            return true
+        }
         if ai.isAnswerMode {
             ai.exitAnswerMode()
             rebuildResults()
@@ -117,6 +176,9 @@ final class LauncherViewModel: ObservableObject {
 
         if ai.isAnswerMode {
             ai.exitAnswerMode()
+        }
+        if case .historyDetail = overlayMode {
+            overlayMode = .history
         }
         selectedIndex = 0
         rebuildResults()
@@ -141,6 +203,12 @@ final class LauncherViewModel: ObservableObject {
             return
         }
 
+        if let input = SlashInput.parse(query) {
+            applySlashInput(input)
+            return
+        }
+
+        overlayMode = .none
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let prompt = Self.askPrefixPrompt(from: query) {
@@ -169,6 +237,39 @@ final class LauncherViewModel: ObservableObject {
         results = built
         if selectedIndex >= results.count {
             selectedIndex = max(0, results.count - 1)
+        }
+    }
+
+    private func applySlashInput(_ input: SlashInput) {
+        if let command = SlashCommandRegistry.exact(token: input.token) {
+            switch command.presentation {
+            case .history:
+                presentHistory(filter: input.remainder)
+                return
+            case .commandList:
+                break
+            }
+        }
+
+        overlayMode = .none
+        results = SlashCommandRegistry.matching(token: input.token).map { .slashCommand($0) }
+        if selectedIndex >= results.count {
+            selectedIndex = max(0, results.count - 1)
+        }
+    }
+
+    private func presentHistory(filter: String) {
+        let items = history.matching(filter)
+        results = items.map { .historyEntry($0) }
+        if selectedIndex >= results.count {
+            selectedIndex = max(0, results.count - 1)
+        }
+
+        if case .historyDetail(let current) = overlayMode,
+           items.contains(where: { $0.id == current.id }) {
+            overlayMode = .historyDetail(current)
+        } else {
+            overlayMode = .history
         }
     }
 
