@@ -10,6 +10,8 @@ final class LauncherViewModel: ObservableObject {
     }
     @Published private(set) var results: [SearchResult] = []
     @Published var selectedIndex: Int = 0
+    /// Max height of the AI answer scroll area, derived from screen geometry.
+    @Published var maxAnswerHeight: CGFloat = 360
 
     let apps: AppIndexer
     let ai: AskAIService

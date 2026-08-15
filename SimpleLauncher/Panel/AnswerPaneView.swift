@@ -6,6 +6,7 @@ struct AnswerPaneView: View {
     let isStreaming: Bool
     let errorMessage: String?
     var statusText: String = "Thinking…"
+    var maxContentHeight: CGFloat = 360
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -43,7 +44,7 @@ struct AnswerPaneView: View {
                 .font(.system(size: 14))
                 .padding(.bottom, 4)
             }
-            .frame(maxHeight: 360)
+            .frame(maxHeight: maxContentHeight)
 
             Text("⏎ Copy  ·  Esc Back")
                 .font(.system(size: 11))

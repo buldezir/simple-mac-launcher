@@ -106,7 +106,8 @@ struct SearchView: View {
                 answer: ai.answer,
                 isStreaming: ai.isStreaming,
                 errorMessage: ai.errorMessage,
-                statusText: ai.statusText
+                statusText: ai.statusText,
+                maxContentHeight: model.maxAnswerHeight
             )
         } else if model.results.isEmpty {
             Text(emptyMessage)

@@ -27,6 +27,12 @@ final class LauncherPanelController: NSObject {
     /// Alfred-style quick fade + shrink on dismiss.
     private static let dismissDuration: CFTimeInterval = 0.14
     private static let dismissScale: CGFloat = 0.94
+    /// Keep this fraction of screen height clear below the panel.
+    private static let bottomGapFraction: CGFloat = 0.10
+    /// Search field, paddings, answer header/footer — everything but the scroll view.
+    private static let answerScrollChrome: CGFloat = 200
+    private static let minAnswerScrollHeight: CGFloat = 240
+    private static let minPanelHeight: CGFloat = 72
 
     init(model: LauncherViewModel) {
         self.model = model
@@ -77,6 +83,7 @@ final class LauncherPanelController: NSObject {
         resetPanelAppearance(panel)
         fitPanelToContent(animated: false)
         position(panel)
+        syncMaxAnswerHeight(proposedPanelHeight: panel.frame.height)
         KeyboardLayoutSwitcher.activateEnglish()
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
@@ -180,6 +187,7 @@ final class LauncherPanelController: NSObject {
             Task { @MainActor in
                 guard let self, let panel = self.panel, self.resizeDisplayLink?.isPaused != false else { return }
                 self.anchoredMaxY = panel.frame.maxY
+                self.syncMaxAnswerHeight(proposedPanelHeight: panel.frame.height)
             }
         }
 
@@ -199,6 +207,8 @@ final class LauncherPanelController: NSObject {
     private func fitPanelToContent(animated: Bool) {
         guard let panel, let hostingView else { return }
 
+        syncMaxAnswerHeight(proposedPanelHeight: panel.frame.height)
+
         // Measure the settled (non-animating) SwiftUI layout.
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -209,9 +219,8 @@ final class LauncherPanelController: NSObject {
 
         let size = hostingView.fittingSize
         let width = max(size.width, 640)
-        let height = max(size.height, 72)
-        let maxHeight = (NSScreen.main?.visibleFrame.height ?? 900) * 0.55
-        let cappedHeight = min(height, maxHeight)
+        let height = max(size.height, Self.minPanelHeight)
+        let cappedHeight = min(height, maxAllowedPanelHeight(proposedHeight: height))
         let targetSize = NSSize(width: width, height: cappedHeight)
 
         // Selection / no-op updates otherwise thrash setFrame every keystroke.
@@ -258,6 +267,27 @@ final class LauncherPanelController: NSObject {
         let y = topY - size.height
         panel.setFrameOrigin(NSPoint(x: x, y: y))
         anchoredMaxY = panel.frame.maxY
+    }
+
+    private func panelScreen() -> NSScreen? {
+        panel?.screen ?? NSScreen.main
+    }
+
+    /// Tallest the panel may be while keeping a 10% gap above the screen bottom.
+    private func maxAllowedPanelHeight(proposedHeight: CGFloat) -> CGFloat {
+        guard let screen = panelScreen() else { return proposedHeight }
+        let visible = screen.visibleFrame
+        let bottomLimit = visible.minY + visible.height * Self.bottomGapFraction
+        let topY = anchoredMaxY ?? (visible.midY + visible.height * 0.15 + proposedHeight / 2)
+        return max(Self.minPanelHeight, topY - bottomLimit)
+    }
+
+    private func syncMaxAnswerHeight(proposedPanelHeight: CGFloat) {
+        let maxPanel = maxAllowedPanelHeight(proposedHeight: proposedPanelHeight)
+        let answer = max(Self.minAnswerScrollHeight, maxPanel - Self.answerScrollChrome)
+        if abs(model.maxAnswerHeight - answer) > 1 {
+            model.maxAnswerHeight = answer
+        }
     }
 
     // MARK: - Top-anchored height animation
