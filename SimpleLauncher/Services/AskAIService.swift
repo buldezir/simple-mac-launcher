@@ -44,6 +44,8 @@ final class AskAIService: ObservableObject {
         let apiKey = settings.apiKey
         let model = settings.modelName
         let tavilyKey = settings.isTavilyConfigured ? settings.tavilyAPIKey : nil
+        // Every turn of one question shares a session id so gateways can route it consistently.
+        let sessionID = UUID().uuidString
 
         task = Task { [weak self] in
             do {
@@ -52,7 +54,8 @@ final class AskAIService: ObservableObject {
                     apiKey: apiKey,
                     model: model,
                     prompt: trimmed,
-                    tavilyAPIKey: tavilyKey
+                    tavilyAPIKey: tavilyKey,
+                    sessionID: sessionID
                 )
             } catch is CancellationError {
                 // ignored
@@ -93,7 +96,8 @@ final class AskAIService: ObservableObject {
         apiKey: String,
         model: String,
         prompt: String,
-        tavilyAPIKey: String?
+        tavilyAPIKey: String?,
+        sessionID: String
     ) async throws {
         var messages: [[String: Any]] = []
         if tavilyAPIKey != nil {
@@ -122,7 +126,8 @@ final class AskAIService: ObservableObject {
                 apiKey: apiKey,
                 model: model,
                 messages: messages,
-                tools: tools
+                tools: tools,
+                sessionID: sessionID
             )
 
             if turn.toolCalls.isEmpty {
@@ -160,7 +165,8 @@ final class AskAIService: ObservableObject {
             apiKey: apiKey,
             model: model,
             messages: messages,
-            tools: nil
+            tools: nil,
+            sessionID: sessionID
         )
         await MainActor.run { self.finishSuccessfulAnswer() }
     }
@@ -216,12 +222,16 @@ final class AskAIService: ObservableObject {
         apiKey: String,
         model: String,
         messages: [[String: Any]],
-        tools: [[String: Any]]?
+        tools: [[String: Any]]?,
+        sessionID: String
     ) async throws -> StreamTurn {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        for (field, value) in Self.providerHeaders(for: url, sessionID: sessionID) {
+            request.setValue(value, forHTTPHeaderField: field)
+        }
         request.timeoutInterval = 120
 
         var body: [String: Any] = [
@@ -306,6 +316,16 @@ final class AskAIService: ObservableObject {
             }
 
         return turn
+    }
+
+    // MARK: - Provider-specific headers
+
+    /// opencode's gateway rejects requests that arrive without a session id to route on.
+    private static func providerHeaders(for url: URL, sessionID: String) -> [String: String] {
+        guard let host = url.host?.lowercased(),
+              host == "opencode.ai" || host.hasSuffix(".opencode.ai")
+        else { return [:] }
+        return ["x-opencode-session": sessionID]
     }
 
     // MARK: - Tool schema helpers
