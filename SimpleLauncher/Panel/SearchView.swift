@@ -40,9 +40,20 @@ struct SearchView: View {
             .allowsHitTesting(false)
         }
         .onAppear {
-            queryFocused = true
+            focusQueryField()
         }
         .onReceive(NotificationCenter.default.publisher(for: .launcherPanelDidShow)) { _ in
+            focusQueryField()
+        }
+    }
+
+    /// The hosting view outlives each show, so `queryFocused` may still be `true`
+    /// from the previous session — assigning `true` again would be a no-op and the
+    /// field editor (and its caret) would never come back. Clear it first, then set
+    /// it once the panel is key.
+    private func focusQueryField() {
+        queryFocused = false
+        DispatchQueue.main.async {
             queryFocused = true
         }
     }
@@ -113,6 +124,7 @@ struct SearchView: View {
                 heading: "History",
                 headingImage: "clock",
                 question: entry.prompt,
+                footer: "⏎ Copy  ·  ⌘⌫ Delete  ·  Esc Back",
                 maxContentHeight: model.maxAnswerHeight
             )
         } else if model.isShowingHistoryList {
@@ -152,6 +164,9 @@ struct SearchView: View {
             }
             return "No commands match"
         }
+        if let prompt = LauncherViewModel.askPrefixPrompt(from: model.query), prompt.isEmpty {
+            return "Type your question, then ⏎ to ask AI"
+        }
         if model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Type to search apps, calculate (100-20%), ask AI with ? or ask, or / for commands"
         }
@@ -159,6 +174,11 @@ struct SearchView: View {
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        // ⌘⌫ deletes the highlighted history entry; elsewhere it stays a text edit.
+        if event.modifierFlags.contains(.command), event.keyCode == 51 {
+            return model.deleteSelectedHistoryEntry()
+        }
+
         if event.modifierFlags.contains(.command),
            let chars = event.charactersIgnoringModifiers,
            let digit = chars.first,

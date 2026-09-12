@@ -22,6 +22,9 @@ final class LauncherPanelController: NSObject {
     private var resizeTargetFrame: NSRect = .zero
     /// Bumped to cancel an in-flight dismiss animation (e.g. show during hide).
     private var dismissGeneration = 0
+    /// App that was frontmost when the launcher opened, re-activated on dismiss
+    /// so keyboard focus lands back where the user left it.
+    private var previousApp: NSRunningApplication?
 
     private static let resizeDuration: CFTimeInterval = 0.18
     /// Alfred-style quick fade + shrink on dismiss.
@@ -41,9 +44,10 @@ final class LauncherPanelController: NSObject {
             forName: .launcherShouldHide,
             object: nil,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self] note in
+            let restoreFocus = (note.userInfo?[LauncherHideOptions.restoreFocusKey] as? Bool) ?? true
             Task { @MainActor in
-                self?.hide()
+                self?.hide(restoringFocus: restoreFocus)
             }
         }
 
@@ -77,6 +81,7 @@ final class LauncherPanelController: NSObject {
 
     func show() {
         dismissGeneration += 1
+        rememberFrontmostApp()
         model.resetForShow()
         let panel = ensurePanel()
         stopHeightAnimation()
@@ -91,18 +96,19 @@ final class LauncherPanelController: NSObject {
         startClickOutsideMonitor()
     }
 
-    func hide() {
+    func hide(restoringFocus: Bool = true) {
         stopHeightAnimation()
         stopClickOutsideMonitor()
         model.ai.cancel()
 
         guard let panel, panel.isVisible else {
             KeyboardLayoutSwitcher.restorePrevious()
+            previousApp = nil
             return
         }
 
         guard let content = panel.contentView, let layer = content.layer else {
-            finishHide(panel)
+            finishHide(panel, restoringFocus: restoringFocus)
             return
         }
 
@@ -122,7 +128,7 @@ final class LauncherPanelController: NSObject {
         CATransaction.setCompletionBlock { [weak self] in
             Task { @MainActor in
                 guard let self, self.dismissGeneration == generation else { return }
-                self.finishHide(panel)
+                self.finishHide(panel, restoringFocus: restoringFocus)
             }
         }
         layer.opacity = 0
@@ -130,10 +136,34 @@ final class LauncherPanelController: NSObject {
         CATransaction.commit()
     }
 
-    private func finishHide(_ panel: NSPanel) {
+    private func finishHide(_ panel: NSPanel, restoringFocus: Bool) {
+        // Only hand activation back if we still hold it — the user may have
+        // ⌘-Tabbed elsewhere while the panel was up.
+        let holdsActivation = NSRunningApplication.current.isActive
         panel.orderOut(nil)
         resetPanelAppearance(panel)
         KeyboardLayoutSwitcher.restorePrevious()
+        if restoringFocus, holdsActivation {
+            restorePreviousAppFocus()
+        } else {
+            previousApp = nil
+        }
+    }
+
+    /// Snapshot the app we are about to take activation from.
+    private func rememberFrontmostApp() {
+        guard panel?.isVisible != true else { return }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        guard frontmost?.processIdentifier != NSRunningApplication.current.processIdentifier else { return }
+        previousApp = frontmost
+    }
+
+    /// Hand activation back so the user's window regains keyboard focus.
+    private func restorePreviousAppFocus() {
+        guard let app = previousApp else { return }
+        previousApp = nil
+        guard !app.isTerminated else { return }
+        app.activate()
     }
 
     private func resetPanelAppearance(_ panel: NSPanel) {
@@ -348,7 +378,8 @@ final class LauncherPanelController: NSObject {
             Task { @MainActor in
                 guard let self, let panel = self.panel, panel.isVisible else { return }
                 if !panel.frame.contains(NSEvent.mouseLocation) {
-                    self.hide()
+                    // The click already activated another window; don't yank focus back.
+                    self.hide(restoringFocus: false)
                 }
             }
         }

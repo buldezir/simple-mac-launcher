@@ -73,6 +73,12 @@ final class AIHistoryStore: ObservableObject {
         persist()
     }
 
+    func delete(id: UUID) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        entries.remove(at: index)
+        persist()
+    }
+
     func entry(id: UUID) -> AIHistoryEntry? {
         entries.first { $0.id == id }
     }

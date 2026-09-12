@@ -26,7 +26,6 @@ final class LauncherViewModel: ObservableObject {
 
     @Published private(set) var overlayMode: OverlayMode = .none
 
-    private var prefixAskTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -111,7 +110,12 @@ final class LauncherViewModel: ObservableObject {
         switch result {
         case .app(let app):
             // Dismiss immediately; don't wait for the target app to activate.
-            NotificationCenter.default.post(name: .launcherShouldHide, object: nil)
+            // The launched app takes focus, so don't restore the previous one.
+            NotificationCenter.default.post(
+                name: .launcherShouldHide,
+                object: nil,
+                userInfo: [LauncherHideOptions.restoreFocusKey: false]
+            )
             Task { @MainActor in
                 apps.open(app)
             }
@@ -149,6 +153,31 @@ final class LauncherViewModel: ObservableObject {
         NotificationCenter.default.post(name: .launcherShouldHide, object: nil)
     }
 
+    /// Removes the highlighted history entry (list) or the open one (detail).
+    /// Returns `false` when the launcher isn't showing history, so the key falls through.
+    @discardableResult
+    func deleteSelectedHistoryEntry() -> Bool {
+        switch overlayMode {
+        case .historyDetail(let entry):
+            history.delete(id: entry.id)
+            overlayMode = .history
+            rebuildResults()
+            return true
+        case .history:
+            guard results.indices.contains(selectedIndex),
+                  case .historyEntry(let entry) = results[selectedIndex] else { return false }
+            deleteHistoryEntry(entry)
+            return true
+        case .none:
+            return false
+        }
+    }
+
+    func deleteHistoryEntry(_ entry: AIHistoryEntry) {
+        history.delete(id: entry.id)
+        rebuildResults()
+    }
+
     func handleEscape() -> Bool {
         if case .historyDetail = overlayMode {
             overlayMode = .history
@@ -182,19 +211,6 @@ final class LauncherViewModel: ObservableObject {
         }
         selectedIndex = 0
         rebuildResults()
-
-        prefixAskTask?.cancel()
-        if let prompt = Self.askPrefixPrompt(from: query) {
-            // Debounce auto-ask on prefix so typing "? hello" doesn't fire every key
-            let captured = prompt
-            prefixAskTask = Task {
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                guard !Task.isCancelled else { return }
-                if Self.askPrefixPrompt(from: self.query) == captured, !captured.isEmpty {
-                    self.ai.ask(captured)
-                }
-            }
-        }
     }
 
     func rebuildResults() {
@@ -284,6 +300,12 @@ final class LauncherViewModel: ObservableObject {
         }
         return nil
     }
+}
+
+/// Keys carried by `.launcherShouldHide`.
+enum LauncherHideOptions {
+    /// `Bool` — whether to re-activate the app that was frontmost before the launcher opened.
+    static let restoreFocusKey = "restoreFocus"
 }
 
 extension Notification.Name {

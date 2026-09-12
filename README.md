@@ -75,11 +75,13 @@ The app runs as a menu bar accessory (no Dock icon).
 | Toggle launcher | **⌥ Space** (Alt+Space), or menu bar → Show Launcher |
 | Launch app | Type name → Return / click / ⌘1–⌘9 |
 | Calculate | Type `100-20%` → Return copies result |
-| Ask AI (prefix) | `? your question` or `ask your question` |
+| Ask AI (prefix) | `? your question` or `ask your question` → Return to send |
 | Ask AI (fallback) | Type something with no app matches → select Ask AI |
+| Browse AI history | `/h`, optionally `/h filter` |
+| Delete a history entry | **⌘⌫** on the highlighted entry, or hover → trash |
 | Settings | Menu bar → Settings…, or **⌘,** |
 | Launch at login | Settings → Launch at login |
-| Dismiss | Esc or click outside |
+| Dismiss | Esc or click outside (focus returns to the previous app) |
 
 ### Ask AI settings
 
