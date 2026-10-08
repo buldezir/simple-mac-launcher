@@ -44,6 +44,14 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 - macOS 14+ (Apple Silicon)
 - Xcode 15+
 
+## Download & install
+
+Download `SimpleLauncher-macos-arm64.zip` from [GitHub Releases](https://github.com/buldezir/simple-mac-launcher/releases), extract it, and drag `SimpleLauncher.app` into `/Applications`.
+
+Release downloads require macOS 14+ on Apple Silicon; Xcode is only needed to build from source. The app is ad hoc signed and is not notarized. If macOS blocks the first launch, open **System Settings → Privacy & Security → Open Anyway**, then confirm opening the app. See [Apple's instructions](https://support.apple.com/en-us/102445).
+
+Publishing a GitHub release (including a prerelease) runs the release workflow, which builds its tag and attaches the ZIP. No Apple signing secrets are required. To retry a failed build, rerun the workflow from GitHub Actions; a successful rerun replaces the asset with the same name.
+
 ## Build & run
 
 ```sh

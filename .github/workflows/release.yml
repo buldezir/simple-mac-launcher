@@ -1,0 +1,52 @@
+name: Build release app
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-upload:
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      APP_PATH: build/DerivedData/Build/Products/Release/SimpleLauncher.app
+      ASSET_PATH: build/SimpleLauncher-macos-arm64.zip
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Build Release app
+        run: |
+          xcodebuild \
+            -project SimpleLauncher.xcodeproj \
+            -scheme SimpleLauncher \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -arch arm64 \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            EXCLUDED_ARCHS=x86_64 \
+            MACOSX_DEPLOYMENT_TARGET=14.0 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Ad hoc sign and verify app
+        run: |
+          codesign --force --sign - --options runtime \
+            --entitlements SimpleLauncher/SimpleLauncher.entitlements "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+      - name: Package app
+        run: ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ASSET_PATH"
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload --repo "$GITHUB_REPOSITORY" --clobber -- "$RELEASE_TAG" "$ASSET_PATH"
