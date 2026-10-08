@@ -11,6 +11,8 @@ final class SettingsStore: ObservableObject {
     private let tavilyAPIKeyKey = "ai.tavilyAPIKey"
     private let aiHistoryLimitKey = "ai.historyLimit"
     private let showMenuBarIconKey = "launcher.showMenuBarIcon"
+    private static let hotkeyKeyCodeKey = "launcher.hotkeyKeyCode"
+    private static let hotkeyModifiersKey = "launcher.hotkeyModifiers"
 
     static let aiHistoryLimitDefault = 20
     static let aiHistoryLimitRange = 0...100
@@ -50,6 +52,11 @@ final class SettingsStore: ObservableObject {
         didSet { UserDefaults.standard.set(showMenuBarIcon, forKey: showMenuBarIconKey) }
     }
 
+    /// Shortcut that shows or hides the launcher. Defaults to ⌥ Space.
+    @Published var activationHotkey: ActivationHotkey {
+        didSet { saveActivationHotkey(activationHotkey) }
+    }
+
     @Published var launchAtLogin: Bool {
         didSet {
             guard !isSyncingLaunchAtLogin else { return }
@@ -86,8 +93,26 @@ final class SettingsStore: ObservableObject {
         } else {
             showMenuBarIcon = UserDefaults.standard.bool(forKey: showMenuBarIconKey)
         }
+        activationHotkey = Self.loadActivationHotkey()
         launchAtLogin = false
         refreshLaunchAtLogin()
+    }
+
+    private static func loadActivationHotkey() -> ActivationHotkey {
+        let defaults = UserDefaults.standard
+        guard defaults.object(forKey: hotkeyKeyCodeKey) != nil,
+              defaults.object(forKey: hotkeyModifiersKey) != nil else {
+            return .default
+        }
+        let modifiers = UInt32(bitPattern: Int32(defaults.integer(forKey: hotkeyModifiersKey)))
+        guard modifiers != 0 else { return .default }
+        let keyCode = UInt32(bitPattern: Int32(defaults.integer(forKey: hotkeyKeyCodeKey)))
+        return ActivationHotkey(keyCode: keyCode, modifiers: modifiers)
+    }
+
+    private func saveActivationHotkey(_ hotkey: ActivationHotkey) {
+        UserDefaults.standard.set(Int(hotkey.keyCode), forKey: Self.hotkeyKeyCodeKey)
+        UserDefaults.standard.set(Int(hotkey.modifiers), forKey: Self.hotkeyModifiersKey)
     }
 
     static func clampedHistoryLimit(_ value: Int) -> Int {

@@ -18,7 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         HotkeyManager.shared.onToggle = { [weak self] in
             self?.panelController?.toggle()
         }
-        HotkeyManager.shared.registerDefault()
+        SettingsStore.shared.$activationHotkey
+            .receive(on: RunLoop.main)
+            .sink { hotkey in
+                HotkeyManager.shared.register(hotkey)
+            }
+            .store(in: &cancellables)
 
         SettingsStore.shared.$showMenuBarIcon
             .receive(on: RunLoop.main)

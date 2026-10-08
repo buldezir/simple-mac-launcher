@@ -20,7 +20,7 @@ enum CalculatorEngine {
         guard !trimmed.isEmpty else { return false }
         guard trimmed.contains(where: \.isASCIIDigit) else { return false }
 
-        let allowed: Set<Character> = Set("0123456789.+-*/()%^ \t×÷−")
+        let allowed: Set<Character> = Set("0123456789.,+-*/()%^ \t×÷−")
         let letters = CharacterSet.letters
         guard trimmed.unicodeScalars.allSatisfy({
             allowed.contains(Character($0)) || letters.contains($0)
@@ -30,15 +30,14 @@ enum CalculatorEngine {
         let hasOp = trimmed.contains(where: { "+-*/%^()×÷−".contains($0) })
             || lower.contains("sqrt")
             || lower.contains("% of ")
-        let normalized = trimmed
-            .replacingOccurrences(of: ",", with: "")
+        let normalized = normalizeDecimalSeparators(trimmed)
             .replacingOccurrences(of: " ", with: "")
         let isPlainNumber = Double(normalized) != nil
         return hasOp || isPlainNumber
     }
 
     private static func normalize(_ input: String) -> String {
-        var s = input.replacingOccurrences(of: ",", with: "")
+        var s = normalizeDecimalSeparators(input)
         s = s.replacingOccurrences(of: "×", with: "*")
         s = s.replacingOccurrences(of: "÷", with: "/")
         s = s.replacingOccurrences(of: "−", with: "-")
@@ -61,6 +60,68 @@ enum CalculatorEngine {
         }
 
         return s
+    }
+
+    /// `,` is a decimal mark, same as `.` (`1,5` → `1.5`, `1,000` → `1`).
+    /// Repeated commas that group thousands (`1,000,000`) are removed.
+    /// When both `.` and `,` appear, the rightmost one is the decimal mark.
+    private static func normalizeDecimalSeparators(_ input: String) -> String {
+        var result = ""
+        var token = ""
+
+        func flush() {
+            guard !token.isEmpty else { return }
+            result += normalizeNumericToken(token)
+            token = ""
+        }
+
+        for character in input {
+            if character.isASCIIDigit || character == "." || character == "," {
+                token.append(character)
+            } else {
+                flush()
+                result.append(character)
+            }
+        }
+        flush()
+        return result
+    }
+
+    private static func normalizeNumericToken(_ token: String) -> String {
+        let commaCount = token.filter { $0 == "," }.count
+        guard commaCount > 0 else { return token }
+
+        let dotCount = token.filter { $0 == "." }.count
+        if dotCount == 0 {
+            let parts = token.split(separator: ",", omittingEmptySubsequences: false)
+            if commaCount > 1, isThousandsGrouped(parts) {
+                return parts.joined()
+            }
+            if commaCount == 1 {
+                return token.replacingOccurrences(of: ",", with: ".")
+            }
+            return token
+        }
+
+        guard let lastDot = token.lastIndex(of: "."),
+              let lastComma = token.lastIndex(of: ",") else { return token }
+        if lastComma > lastDot {
+            return token
+                .replacingOccurrences(of: ".", with: "")
+                .replacingOccurrences(of: ",", with: ".")
+        }
+        return token.replacingOccurrences(of: ",", with: "")
+    }
+
+    private static func isThousandsGrouped(_ parts: [Substring]) -> Bool {
+        guard parts.count >= 2,
+              let first = parts.first,
+              (1...3).contains(first.count),
+              first.allSatisfy(\.isNumber) else { return false }
+        for part in parts.dropFirst() {
+            guard part.count == 3, part.allSatisfy(\.isNumber) else { return false }
+        }
+        return true
     }
 
     private static func findMatchingParen(in s: String, openAt: String.Index) -> String.Index? {
