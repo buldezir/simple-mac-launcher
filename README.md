@@ -6,7 +6,7 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 
 - **App launcher** — fuzzy search installed apps, open with Return or ⌘1–⌘9
 - **Calculator** — math in the search field, including percentages (`100-20%` → `80`)
-- **Ask AI** — OpenAI-compatible chat; trigger with `?` / `ask `, or as a fallback when nothing matches. Optional [Tavily](https://tavily.com) web search when a key is set
+- **Ask AI** — OpenAI-compatible chat, or a local Codex, Claude, Cursor Agent, or OpenCode CLI. Trigger with `?` / `ask `, or as a fallback when nothing matches. Optional [Tavily](https://tavily.com) web search when the API provider is selected and a key is set
 - **Launch at login** — optional startup via Settings
 
 ## Screenshots
@@ -85,7 +85,9 @@ The app runs as a menu bar accessory (no Dock icon).
 
 ### Ask AI settings
 
-In Settings, configure:
+In Settings, choose a **Provider**.
+
+**API** — OpenAI-compatible Chat Completions:
 
 1. **Endpoint** — e.g. `https://api.openai.com/v1` or `https://opencode.ai/zen/go/v1/chat/completions`
 2. **API key** — stored in UserDefaults (personal use; no Keychain prompts)
@@ -93,6 +95,8 @@ In Settings, configure:
 4. **Tavily API key** (optional) — enables `web_search` and `web_fetch`; free tier at [tavily.com](https://tavily.com)
 
 Requests go to `{endpoint}/chat/completions` (OpenAI-compatible streaming). When Tavily is configured, Ask AI may call `web_search` / `web_fetch` (up to a few rounds) before answering.
+
+**Codex, Claude, Cursor Agent, or OpenCode** — runs the CLI already installed on this Mac (`codex`, `claude`, `cursor-agent`, or `opencode`) and uses that CLI’s login (`codex login`, `claude auth login`, `cursor-agent login`, or `opencode auth login`). No API key in the launcher. Off by default, the CLI stays read-only. **Auto mode** lets it edit files and run commands in your home folder. Optional **Model** and **Executable** override the CLI default and the auto-detected binary (Homebrew, `~/.local/bin`, `~/.opencode/bin`, then your login PATH). Settings shows an error when the selected CLI is not installed.
 
 AI answers appear in an inline markdown pane under the search field. **Return** copies the plain-text answer; **Esc** exits answer mode.
 

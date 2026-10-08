@@ -29,8 +29,18 @@ final class AskAIService: ObservableObject {
         isAnswerMode = true
         answer = ""
         errorMessage = nil
-        statusText = "Thinking…"
+        let provider = settings.aiProvider
+        statusText = provider.usesCLI ? "Asking \(provider.title)…" : "Thinking…"
 
+        switch provider {
+        case .api:
+            askWithAPI(trimmed)
+        case .codex, .claude, .cursor, .opencode:
+            askWithCLI(trimmed, provider: provider)
+        }
+    }
+
+    private func askWithAPI(_ prompt: String) {
         guard settings.isAIConfigured else {
             errorMessage = "Configure endpoint, API key, and model name in Settings."
             return
@@ -53,7 +63,7 @@ final class AskAIService: ObservableObject {
                     url: url,
                     apiKey: apiKey,
                     model: model,
-                    prompt: trimmed,
+                    prompt: prompt,
                     tavilyAPIKey: tavilyKey,
                     sessionID: sessionID
                 )
@@ -65,6 +75,67 @@ final class AskAIService: ObservableObject {
                     self?.isStreaming = false
                 }
             }
+        }
+    }
+
+    private func askWithCLI(_ prompt: String, provider: AIProvider) {
+        let model = settings.cliModel(for: provider)
+        let customPath = settings.cliExecutableOverride(for: provider)
+        let autoMode = settings.cliAutoMode
+        isStreaming = true
+
+        task = Task { [weak self] in
+            let resolved = await Task.detached(priority: .userInitiated) {
+                CLIAgentLocator.resolve(provider: provider, customPath: customPath)
+            }.value
+            switch resolved {
+            case .failure(let error):
+                await MainActor.run {
+                    self?.errorMessage = error.localizedDescription
+                    self?.isStreaming = false
+                }
+            case .success(let executable):
+                do {
+                    try await CLIAgentSession.run(
+                        provider: provider,
+                        executable: executable,
+                        model: model,
+                        prompt: prompt,
+                        autoMode: autoMode
+                    ) { update in
+                        await MainActor.run { self?.applyCLI(update) }
+                    }
+                    await MainActor.run {
+                        guard let self, !Task.isCancelled, self.isAnswerMode else { return }
+                        if self.errorMessage == nil,
+                           self.answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            self.errorMessage = "\(provider.title) returned an empty response."
+                        }
+                        self.finishSuccessfulAnswer()
+                    }
+                } catch is CancellationError {
+                    // ignored
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        self?.errorMessage = error.localizedDescription
+                        self?.isStreaming = false
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyCLI(_ update: CLIStreamUpdate) {
+        guard isAnswerMode else { return }
+        if let status = update.status, status != statusText {
+            statusText = status
+        }
+        if let answer = update.answer {
+            self.answer = answer
+        }
+        if let error = update.error, !error.isEmpty {
+            errorMessage = error
         }
     }
 

@@ -7,7 +7,7 @@ struct SimpleLauncherApp: App {
     var body: some Scene {
         Settings {
             SettingsView(settings: SettingsStore.shared)
-                .frame(width: 560, height: 680)
+                .frame(width: 560, height: 740)
         }
     }
 }

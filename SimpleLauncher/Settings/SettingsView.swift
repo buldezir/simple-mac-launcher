@@ -4,28 +4,73 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var settings: SettingsStore
     @ObservedObject private var hotkeys = HotkeyManager.shared
+    @State private var locateGeneration = 0
+    @State private var locatedCLIPath: String?
+    @State private var cliLocateError: String?
+    @State private var isLocatingCLI = false
 
     var body: some View {
         Form {
             Section("Ask AI") {
-                TextField("Endpoint", text: $settings.endpoint)
-                    .textFieldStyle(.roundedBorder)
-                SecureField("API Key", text: $settings.apiKey)
-                    .textFieldStyle(.roundedBorder)
-                TextField("Model name", text: $settings.modelName)
-                    .textFieldStyle(.roundedBorder)
+                Picker("Provider", selection: $settings.aiProvider) {
+                    ForEach(AIProvider.allCases) { provider in
+                        Text(provider.title).tag(provider)
+                    }
+                }
 
-                Text("Use an OpenAI-compatible Chat Completions endpoint. Example: https://api.openai.com/v1")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if settings.aiProvider == .api {
+                    TextField("Endpoint", text: $settings.endpoint)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("API Key", text: $settings.apiKey)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Model name", text: $settings.modelName)
+                        .textFieldStyle(.roundedBorder)
 
-                SecureField("Tavily API Key (optional)", text: $settings.tavilyAPIKey)
-                    .textFieldStyle(.roundedBorder)
-                Text("When set, Ask AI gets web_search and web_fetch via Tavily. Requires a model that supports tool calling. Free tier: tavily.com")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Text("Use an OpenAI-compatible Chat Completions endpoint. Example: https://api.openai.com/v1")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    SecureField("Tavily API Key (optional)", text: $settings.tavilyAPIKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("When set, Ask AI gets web_search and web_fetch via Tavily. Requires a model that supports tool calling. Free tier: tavily.com")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    TextField("Model (optional)", text: cliModelBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .id("cli-model-\(settings.aiProvider.rawValue)")
+                    TextField("Executable (optional)", text: cliPathBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .id("cli-path-\(settings.aiProvider.rawValue)")
+
+                    Toggle("Auto mode", isOn: $settings.cliAutoMode)
+                    Text(settings.cliAutoMode
+                        ? "The agent may edit files and run commands in your home folder."
+                        : "Read-only. The agent answers without editing files or running commands.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if let cliLocateError {
+                        Text(cliLocateError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if isLocatingCLI {
+                        Text("Looking for `\(settings.aiProvider.commandName)`…")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if cliLocateError == nil, let hint = cliHint {
+                        Text(hint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
 
                 Stepper(value: $settings.aiHistoryLimit, in: SettingsStore.aiHistoryLimitRange) {
                     Text("Keep last \(settings.aiHistoryLimit) AI prompts")
@@ -74,8 +119,95 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding()
-        .frame(width: 560, height: 680)
-        .onAppear { settings.refreshLaunchAtLogin() }
+        .frame(width: 560, height: 740)
+        .onAppear {
+            settings.refreshLaunchAtLogin()
+            refreshCLILocation()
+        }
+        .onChange(of: cliLocateKey) { _, _ in
+            refreshCLILocation()
+        }
+    }
+
+    private var cliLocateKey: String {
+        "\(settings.aiProvider.rawValue)\n\(settings.cliExecutableOverride(for: settings.aiProvider))"
+    }
+
+    private func refreshCLILocation() {
+        locateGeneration += 1
+        let generation = locateGeneration
+        let provider = settings.aiProvider
+        guard provider.usesCLI else {
+            locatedCLIPath = nil
+            cliLocateError = nil
+            isLocatingCLI = false
+            return
+        }
+        let custom = settings.cliExecutableOverride(for: provider)
+        if let problem = CLIAgentLocator.customPathProblem(provider: provider, customPath: custom) {
+            locatedCLIPath = nil
+            cliLocateError = problem
+            isLocatingCLI = false
+            return
+        }
+        if let known = CLIAgentLocator.preview(provider: provider, customPath: custom) {
+            locatedCLIPath = known
+            cliLocateError = nil
+            isLocatingCLI = false
+            return
+        }
+
+        locatedCLIPath = nil
+        cliLocateError = nil
+        isLocatingCLI = true
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                CLIAgentLocator.resolve(provider: provider, customPath: custom)
+            }.value
+            guard generation == locateGeneration else { return }
+            isLocatingCLI = false
+            switch result {
+            case .success(let path):
+                locatedCLIPath = path
+                cliLocateError = nil
+            case .failure(let error):
+                locatedCLIPath = nil
+                cliLocateError = error.localizedDescription
+            }
+        }
+    }
+
+    private var cliModelBinding: Binding<String> {
+        switch settings.aiProvider {
+        case .codex: return $settings.codexModel
+        case .claude: return $settings.claudeModel
+        case .cursor: return $settings.cursorModel
+        case .opencode: return $settings.opencodeModel
+        case .api: return .constant("")
+        }
+    }
+
+    private var cliPathBinding: Binding<String> {
+        switch settings.aiProvider {
+        case .codex: return $settings.codexCLIPath
+        case .claude: return $settings.claudeCLIPath
+        case .cursor: return $settings.cursorCLIPath
+        case .opencode: return $settings.opencodeCLIPath
+        case .api: return .constant("")
+        }
+    }
+
+    private var cliHint: String? {
+        guard cliLocateError == nil, let path = locatedCLIPath else { return nil }
+        let provider = settings.aiProvider
+        if CLIAgentLocator.customPathProblem(
+            provider: provider,
+            customPath: settings.cliExecutableOverride(for: provider)
+        ) != nil {
+            return "Clear the executable field to auto-detect `\(provider.commandName)`."
+        }
+        let access = settings.cliAutoMode ? "Auto mode is on." : "Read-only."
+        return "Using \(path). \(access) Uses your existing \(provider.title) login. Leave the model blank to use the CLI default."
     }
 }
 

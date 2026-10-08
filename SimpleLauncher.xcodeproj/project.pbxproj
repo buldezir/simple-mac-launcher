@@ -14,6 +14,7 @@
 		A10000000000000000000005 /* AppIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AppIndexer.swift */; };
 		A10000000000000000000006 /* CalculatorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* CalculatorEngine.swift */; };
 		A10000000000000000000007 /* AskAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* AskAIService.swift */; };
+		A10000000000000000000019 /* CLIAgentRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* CLIAgentRunner.swift */; };
 		A10000000000000000000014 /* TavilySearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* TavilySearchService.swift */; };
 		A10000000000000000000008 /* LauncherViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* LauncherViewModel.swift */; };
 		A10000000000000000000009 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* HotkeyManager.swift */; };
@@ -39,6 +40,7 @@
 		A20000000000000000000005 /* AppIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIndexer.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* CalculatorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalculatorEngine.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* AskAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskAIService.swift; sourceTree = "<group>"; };
+		A20000000000000000000019 /* CLIAgentRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIAgentRunner.swift; sourceTree = "<group>"; };
 		A20000000000000000000014 /* TavilySearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TavilySearchService.swift; sourceTree = "<group>"; };
 		A20000000000000000000008 /* LauncherViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LauncherViewModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000009 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
@@ -123,6 +125,7 @@
 				A20000000000000000000005 /* AppIndexer.swift */,
 				A20000000000000000000006 /* CalculatorEngine.swift */,
 				A20000000000000000000007 /* AskAIService.swift */,
+				A20000000000000000000019 /* CLIAgentRunner.swift */,
 				A20000000000000000000014 /* TavilySearchService.swift */,
 				A20000000000000000000017 /* AIHistoryStore.swift */,
 				A20000000000000000000008 /* LauncherViewModel.swift */,
@@ -233,6 +236,7 @@
 				A10000000000000000000005 /* AppIndexer.swift in Sources */,
 				A10000000000000000000006 /* CalculatorEngine.swift in Sources */,
 				A10000000000000000000007 /* AskAIService.swift in Sources */,
+				A10000000000000000000019 /* CLIAgentRunner.swift in Sources */,
 				A10000000000000000000014 /* TavilySearchService.swift in Sources */,
 				A10000000000000000000008 /* LauncherViewModel.swift in Sources */,
 				A10000000000000000000009 /* HotkeyManager.swift in Sources */,
