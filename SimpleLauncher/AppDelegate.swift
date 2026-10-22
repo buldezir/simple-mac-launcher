@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
+    private var updateItem: NSMenuItem?
     private var panelController: LauncherPanelController?
     private var settingsWindow: NSWindow?
     private let model = LauncherViewModel()
@@ -12,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        AppUpdater.shared.start()
 
         panelController = LauncherPanelController(model: model)
 
@@ -73,6 +75,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showItem.target = self
         menu.addItem(showItem)
 
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        menu.addItem(updateItem)
+        self.updateItem = updateItem
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -82,6 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
+        menu.delegate = self
         item.menu = menu
         statusItem = item
     }
@@ -116,7 +124,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow = window
     }
 
+    @objc private func checkForUpdates() {
+        AppUpdater.shared.checkForUpdates()
+    }
+
     @objc private func quit() {
         NSApp.terminate(nil)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate, NSMenuItemValidation {
+    /// The update item offers the update a daily check found, if any.
+    func menuWillOpen(_ menu: NSMenu) {
+        updateItem?.isHidden = !AppUpdater.shared.isRelease
+        updateItem?.title = AppUpdater.shared.menuTitle
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        guard menuItem.action == #selector(checkForUpdates) else { return true }
+        return AppUpdater.shared.canCheck || AppUpdater.shared.available != nil
     }
 }

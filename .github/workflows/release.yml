@@ -1,52 +1,197 @@
-name: Build release app
+# Builds SimpleLauncher for Apple silicon, signed with Developer ID and notarized.
+# Pushing a tag like v0.2.0 publishes it as that tag's release, with the app's
+# update feed; running the workflow by hand only keeps them as run artifacts.
+name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version for the app, such as 0.2.0-test.1, to try its updates (a tag sets its own)
+        required: false
+      bundle_id:
+        description: Bundle ID for the app, such as com.sasha.simplelauncher.updatetest, so that test builds keep apart from the installed one
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
 
 jobs:
-  build-and-upload:
-    runs-on: macos-15
-    timeout-minutes: 30
+  mac:
+    name: SimpleLauncher
+    # The same Xcode as the other apps' releases; the macos-26 image only has
+    # Xcode 26. xcode-27 runs on Apple silicon.
+    runs-on: xcode-27
+    env:
+      APP: build/DerivedData/Build/Products/Release/SimpleLauncher.app
+      ASSET: SimpleLauncher-macOS-arm64.zip
+      APPCAST: SimpleLauncher-macOS-appcast.xml   # the app's SUFeedURL
+    steps:
+      - uses: actions/checkout@v7
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          # A release is signed with Developer ID and notarized, so that macOS
+          # opens it and keeps its permissions across updates. A run by hand
+          # without the certificate signs ad hoc.
+          if [ -z "$CERTIFICATE_BASE64" ]; then
+            if [[ $GITHUB_REF == refs/tags/v* ]]; then
+              echo "::error::MACOS_CERTIFICATE_P12_BASE64 isn't set; see Releases in README.md"; exit 1
+            fi
+            exit 0
+          fi
+          keychain=$RUNNER_TEMP/signing.keychain-db
+          password=$(uuidgen)
+          echo "$CERTIFICATE_BASE64" | base64 -d > "$RUNNER_TEMP/certificate.p12"
+          # The certificate's issuer, in case the runner doesn't have it.
+          curl -fsSL -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$keychain"
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$keychain"
+          echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+      - name: Build
+        run: |
+          xcodebuild -version
+          # Tags set the app's version, and a build number for Sparkle that
+          # only grows: 0.3.0-beta.2 → 30002, 0.3.0 → 30099. Other runs keep
+          # the source's, unless started with a version.
+          v=$INPUT_VERSION
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then v=${GITHUB_REF_NAME#v}; fi
+          version=()
+          if [ -n "$v" ]; then
+            [[ $v =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[A-Za-z]*\.?([0-9]+))? ]] || { echo "::error::Not a version: $v"; exit 1; }
+            m=("${BASH_REMATCH[@]}")
+            version=(MARKETING_VERSION="$v" CURRENT_PROJECT_VERSION=$((m[1] * 1000000 + m[2] * 10000 + m[3] * 100 + ${m[5]:-99})))
+          fi
+          if [ -n "$INPUT_BUNDLE_ID" ]; then version+=(PRODUCT_BUNDLE_IDENTIFIER="$INPUT_BUNDLE_ID"); fi
+          # Developer ID needs no provisioning profile for these entitlements.
+          # Notarization wants a secure timestamp and no get-task-allow.
+          if [ -n "$SIGNING_KEYCHAIN" ]; then
+            signing=(CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_IDENTITY="Developer ID Application"
+              CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO OTHER_CODE_SIGN_FLAGS=--timestamp)
+          else
+            signing=(DEVELOPMENT_TEAM= CODE_SIGN_IDENTITY=-)
+          fi
+          xcodebuild -project SimpleLauncher.xcodeproj -scheme SimpleLauncher -configuration Release \
+            -destination 'generic/platform=macOS' -derivedDataPath build/DerivedData \
+            ARCHS=arm64 "${signing[@]}" "${version[@]}" build
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BUNDLE_ID: ${{ inputs.bundle_id }}
+      - name: Package
+        run: |
+          codesign --verify --deep --strict "$APP"
+          for exe in "$APP"/Contents/MacOS/*; do lipo -archs "$exe"; done
+          plutil -extract CFBundleShortVersionString raw "$APP/Contents/Info.plist"
+          if [ -n "$SIGNING_KEYCHAIN" ]; then
+            for exe in "$APP"/Contents/MacOS/* "$APP"/Contents/Frameworks/*; do codesign -dvv "$exe" 2>&1 | grep -E '^(Identifier|Authority|Timestamp)='; done
+            # Apple checks the app and issues a ticket, stapled to the app so
+            # that its first launch needn't ask Apple.
+            key=$RUNNER_TEMP/notary.p8
+            echo "$NOTARY_KEY_BASE64" | base64 -d > "$key"
+            notary=(--key "$key" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID")
+            ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/notarize.zip"
+            # Submitting and waiting are separate, and retried, so that the
+            # runner losing its connection for a moment doesn't fail the job.
+            id=
+            for attempt in 1 2 3; do
+              if xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" "${notary[@]}" --output-format json > "$RUNNER_TEMP/notary.json" &&
+                id=$(plutil -extract id raw "$RUNNER_TEMP/notary.json"); then break; fi
+              cat "$RUNNER_TEMP/notary.json"; sleep 30
+            done
+            if [ -z "$id" ]; then echo "::error::Couldn't submit for notarization"; exit 1; fi
+            echo "submission $id"
+            for attempt in 1 2 3 4 5; do
+              if xcrun notarytool wait "$id" "${notary[@]}" --timeout 1h --output-format json > "$RUNNER_TEMP/notary.json" &&
+                status=$(plutil -extract status raw "$RUNNER_TEMP/notary.json"); then break; fi
+              cat "$RUNNER_TEMP/notary.json"; status=; sleep 30
+            done
+            cat "$RUNNER_TEMP/notary.json"; echo
+            xcrun notarytool log "$id" "${notary[@]}" || true
+            if [ "$status" != Accepted ]; then echo "::error::Notarization: ${status:-no answer}"; exit 1; fi
+            xcrun stapler staple "$APP"
+            spctl --assess --type execute -vv "$APP"
+          fi
+          mkdir dist
+          ditto -c -k --keepParent "$APP" "dist/$ASSET"
+
+          # The app's update feed. Its notes are the release's, up to its
+          # Downloads; the release is usually written by the time the app is
+          # built. Without the key, a run by hand makes no feed.
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            if [[ $GITHUB_REF == refs/tags/v* ]]; then echo "::error::SPARKLE_PRIVATE_KEY isn't set; see Releases in README.md"; exit 1; fi
+          else
+            gh release view "$GITHUB_REF_NAME" --json body --jq .body 2>/dev/null | sed '/^## Downloads/,$d' > "$RUNNER_TEMP/notes.md" || true
+            download="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+            scripts/appcast.sh "$APP" "dist/$ASSET" "$download/$ASSET" \
+              "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" "$RUNNER_TEMP/notes.md" > "dist/$APPCAST"
+            cat "dist/$APPCAST"
+          fi
+        env:
+          NOTARY_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+      - name: Remove the signing keychain
+        if: always() && env.SIGNING_KEYCHAIN != ''
+        run: |
+          security delete-keychain "$SIGNING_KEYCHAIN"
+          rm -f "$RUNNER_TEMP/notary.p8"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mac
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [mac]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      APP_PATH: build/DerivedData/Build/Products/Release/SimpleLauncher.app
-      ASSET_PATH: build/SimpleLauncher-macos-arm64.zip
     steps:
-      - name: Check out release tag
-        uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
-          ref: refs/tags/${{ github.event.release.tag_name }}
-          persist-credentials: false
-
-      - name: Build Release app
-        run: |
-          xcodebuild \
-            -project SimpleLauncher.xcodeproj \
-            -scheme SimpleLauncher \
-            -configuration Release \
-            -derivedDataPath build/DerivedData \
-            -arch arm64 \
-            ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=YES \
-            EXCLUDED_ARCHS=x86_64 \
-            MACOSX_DEPLOYMENT_TARGET=14.0 \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            build
-
-      - name: Ad hoc sign and verify app
-        run: |
-          codesign --force --sign - --options runtime \
-            --entitlements SimpleLauncher/SimpleLauncher.entitlements "$APP_PATH"
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-
-      - name: Package app
-        run: ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ASSET_PATH"
-
-      - name: Upload release asset
+          path: dist
+          merge-multiple: true
+      - name: Publish
+        working-directory: dist
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload --repo "$GITHUB_REPOSITORY" --clobber -- "$RELEASE_TAG" "$ASSET_PATH"
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          NOTES: |
+            **SimpleLauncher** (`SimpleLauncher-macOS-arm64.zip`) needs macOS 14 on Apple silicon. It is signed with Developer ID and notarized by Apple, and updates itself: **Check for Updates…** is in its menu bar menu and in Settings.
+
+            Unzip it and drag `SimpleLauncher.app` into Applications before you open it: macOS runs an app opened where it was downloaded from a temporary copy, which can't update itself. If it says it can't be updated, quit it and run `xattr -dr com.apple.quarantine /Applications/SimpleLauncher.app`.
+        run: |
+          sums=$(sha256sum *) && echo "$sums" > SHA256SUMS
+          # The app's update feed goes up last, so that an app that reads it
+          # finds its zip.
+          assets=() appcasts=()
+          for f in *; do
+            if [[ $f == *-appcast.xml ]]; then appcasts+=("$f"); else assets+=("$f"); fi
+          done
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            prerelease=()
+            if [[ $TAG == *-* ]]; then prerelease=(--prerelease); fi
+            gh release create "$TAG" --verify-tag --generate-notes --notes "$NOTES" "${prerelease[@]}" "${assets[@]}"
+          fi
+          if [ ${#appcasts[@]} -gt 0 ]; then gh release upload "$TAG" "${appcasts[@]}" --clobber; fi

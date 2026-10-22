@@ -30,11 +30,14 @@
 		A10000000000000000000017 /* AIHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* AIHistoryStore.swift */; };
 		A10000000000000000000018 /* HistoryPaneView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* HistoryPaneView.swift */; };
 		A10000000000000000000010 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* Assets.xcassets */; };
+		A1000000000000000000001A /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001A /* AppUpdater.swift */; };
+		A1000000000000000000001B /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AB0000000000000000000001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A20000000000000000000001 /* SimpleLauncherApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleLauncherApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A2000000000000000000001A /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* SearchResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResult.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* FuzzyMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FuzzyMatcher.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AppIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppIndexer.swift; sourceTree = "<group>"; };
@@ -66,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000001B /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,6 +89,7 @@
 			children = (
 				A20000000000000000000001 /* SimpleLauncherApp.swift */,
 				A20000000000000000000002 /* AppDelegate.swift */,
+				A2000000000000000000001A /* AppUpdater.swift */,
 				A50000000000000000000004 /* Panel */,
 				A50000000000000000000005 /* Services */,
 				A50000000000000000000006 /* Hotkey */,
@@ -170,12 +175,16 @@
 				A70000000000000000000001 /* Sources */,
 				A40000000000000000000001 /* Frameworks */,
 				A70000000000000000000002 /* Resources */,
+				A70000000000000000000003 /* Sign Sparkle */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = SimpleLauncher;
+			packageProductDependencies = (
+				AB0000000000000000000001 /* Sparkle */,
+			);
 			productName = SimpleLauncher;
 			productReference = A30000000000000000000001 /* SimpleLauncher.app */;
 			productType = "com.apple.product-type.application";
@@ -204,6 +213,9 @@
 				Base,
 			);
 			mainGroup = A50000000000000000000001;
+			packageReferences = (
+				AA0000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = A50000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -224,6 +236,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A70000000000000000000003 /* Sign Sparkle */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sign Sparkle";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "exec \"$SRCROOT/scripts/sign-sparkle.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A70000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -231,6 +265,7 @@
 			files = (
 				A10000000000000000000001 /* SimpleLauncherApp.swift in Sources */,
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
+				A1000000000000000000001A /* AppUpdater.swift in Sources */,
 				A10000000000000000000003 /* SearchResult.swift in Sources */,
 				A10000000000000000000004 /* FuzzyMatcher.swift in Sources */,
 				A10000000000000000000005 /* AppIndexer.swift in Sources */,
@@ -303,17 +338,19 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = "$(HARDENED_RUNTIME_$(DEVELOPMENT_TEAM:default=WITHOUT_TEAM):default=YES)";
 				GENERATE_INFOPLIST_FILE = NO;
+				HARDENED_RUNTIME_WITHOUT_TEAM = NO;
 				INFOPLIST_FILE = SimpleLauncher/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sasha.simplelauncher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SPARKLE_PUBLIC_KEY = "4F9JfyKpbAqFt8sDoLQUWTVq3J9qm90bPngW93z/uUk=";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -327,17 +364,19 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_HARDENED_RUNTIME = "$(HARDENED_RUNTIME_$(DEVELOPMENT_TEAM:default=WITHOUT_TEAM):default=YES)";
 				GENERATE_INFOPLIST_FILE = NO;
+				HARDENED_RUNTIME_WITHOUT_TEAM = NO;
 				INFOPLIST_FILE = SimpleLauncher/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sasha.simplelauncher;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SPARKLE_PUBLIC_KEY = "4F9JfyKpbAqFt8sDoLQUWTVq3J9qm90bPngW93z/uUk=";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -365,6 +404,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 2.10.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AB0000000000000000000001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A90000000000000000000001 /* Project object */;
 }

@@ -116,6 +116,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            UpdatesSection()
         }
         .formStyle(.grouped)
         .padding()
@@ -208,6 +210,30 @@ struct SettingsView: View {
         }
         let access = settings.cliAutoMode ? "Auto mode is on." : "Read-only."
         return "Using \(path). \(access) Uses your existing \(provider.title) login. Leave the model blank to use the CLI default."
+    }
+}
+
+/// Whether the app looks for updates, and installs them by itself. The check
+/// is here too, since the menu bar icon can be hidden.
+private struct UpdatesSection: View {
+    @Bindable private var updater = AppUpdater.shared
+
+    var body: some View {
+        if updater.isRelease {
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $updater.checksAutomatically)
+                Toggle("Download and install automatically", isOn: $updater.downloadsAutomatically)
+                    .disabled(!updater.checksAutomatically)
+                Text(updater.downloadsAutomatically && updater.checksAutomatically
+                     ? "Once a day. A new version installs when you quit SimpleLauncher."
+                     : "Once a day. SimpleLauncher asks before installing a new version.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(updater.menuTitle) { updater.checkForUpdates() }
+                    .disabled(!updater.canCheck && updater.available == nil)
+            }
+        }
     }
 }
 

@@ -46,11 +46,9 @@ A minimal Alfred/Sol-style macOS launcher built with native SwiftUI.
 
 ## Download & install
 
-Download `SimpleLauncher-macos-arm64.zip` from [GitHub Releases](https://github.com/buldezir/simple-mac-launcher/releases), extract it, and drag `SimpleLauncher.app` into `/Applications`.
+Download `SimpleLauncher-macOS-arm64.zip` from [GitHub Releases](https://github.com/buldezir/simple-mac-launcher/releases), extract it, and drag `SimpleLauncher.app` into `/Applications` before you open it.
 
-Release downloads require macOS 14+ on Apple Silicon; Xcode is only needed to build from source. The app is ad hoc signed and is not notarized. If macOS blocks the first launch, open **System Settings → Privacy & Security → Open Anyway**, then confirm opening the app. See [Apple's instructions](https://support.apple.com/en-us/102445).
-
-Publishing a GitHub release (including a prerelease) runs the release workflow, which builds its tag and attaches the ZIP. No Apple signing secrets are required. To retry a failed build, rerun the workflow from GitHub Actions; a successful rerun replaces the asset with the same name.
+Release downloads require macOS 14+ on Apple Silicon; Xcode is only needed to build from source. The app is signed with Developer ID and notarized by Apple, and updates itself: **Check for Updates…** is in the menu bar menu and in Settings, which also turns the daily checks and automatic installs on and off. If it says it can't be updated, it is running from the temporary copy macOS makes of an app opened where it was downloaded: quit it and run `xattr -dr com.apple.quarantine /Applications/SimpleLauncher.app`.
 
 ## Build & run
 
@@ -112,3 +110,28 @@ AI answers appear in an inline markdown pane under the search field. **Return** 
 
 - App Sandbox is off so the launcher can open apps and call custom AI endpoints.
 - If Alt+Space does not work, another app may already own that hotkey (e.g. Spotlight alternatives).
+
+## Releases
+
+`.github/workflows/release.yml` runs on `v*` tags, such as the one a release published on GitHub creates, on the `xcode-27` runner:
+
+- It builds SimpleLauncher in Release, arm64 only. The tag sets `MARKETING_VERSION`, and `CURRENT_PROJECT_VERSION`, a build number that only grows (`1.2.0-beta.2` → 1020002, `1.2.0` → 1020099), which Sparkle compares. A local build is version `0.1`, and doesn't update.
+- It signs the app with the Developer ID certificate in the repository's secrets, then notarizes it with an App Store Connect API key and staples it. `scripts/sign-sparkle.sh`, the target's last build phase, signs Sparkle's helpers with Developer ID, as notarization requires.
+- `scripts/appcast.sh` writes the app's [Sparkle](https://sparkle-project.org) feed, `SimpleLauncher-macOS-appcast.xml`: the zip's EdDSA signature (`SPARKLE_PRIVATE_KEY`, checked against the app's `SUPublicEDKey`) and the release's notes up to its `## Downloads`, if the release is written by then. The release job uploads `SimpleLauncher-macOS-arm64.zip` and `SHA256SUMS`, then the feed, which the app's `SUFeedURL` reads from the latest release.
+- A tag without the secrets fails. A run by hand without them signs ad hoc and keeps the zip as a run artifact. An ad hoc build has no hardened runtime, under which it couldn't load Sparkle.framework (`HARDENED_RUNTIME_WITHOUT_TEAM` in the project). A run by hand takes a `version`, such as `1.1.0-test.1`, to build an app that offers and takes updates, and a `bundle_id`, such as `com.sasha.simplelauncher.updatetest`, to keep it apart from the installed one.
+
+Signing takes a Developer ID Application certificate, exported from Keychain Access as a `.p12`, and notarization an App Store Connect API key (Users and Access › Integrations › Team Keys, with Developer access). Sparkle installs only updates signed with the key whose public half is `SPARKLE_PUBLIC_KEY` in the project's build settings. Its private half is in the login keychain of the Mac that made it, and in the repository's secrets; keep a backup, since without it the app can never update again:
+
+```sh
+base64 -i DeveloperID.p12 | gh secret set MACOS_CERTIFICATE_P12_BASE64
+gh secret set MACOS_CERTIFICATE_PASSWORD
+gh secret set APPLE_TEAM_ID              # from developer.apple.com › Membership details
+base64 -i AuthKey_<KEYID>.p8 | gh secret set NOTARY_API_KEY_BASE64
+gh secret set NOTARY_API_KEY_ID
+gh secret set NOTARY_API_ISSUER_ID
+
+mkdir -p ~/sparkle && curl -fsSL https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz | tar -xf - -C ~/sparkle
+~/sparkle/bin/generate_keys --account simple-mac-launcher         # prints the public key
+~/sparkle/bin/generate_keys --account simple-mac-launcher -x ~/sparkle/private-key
+gh secret set SPARKLE_PRIVATE_KEY < ~/sparkle/private-key
+```
