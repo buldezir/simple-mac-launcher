@@ -32,6 +32,10 @@ enum SlashPresentation: Equatable {
     case commandList
     /// Show the AI history pane, optionally filtered by `remainder`.
     case history
+    /// Return opens the Settings window.
+    case settings
+    /// Return checks for updates. Release builds only, like the menu item.
+    case checkForUpdates
 }
 
 /// A slash command. Register new ones on `SlashCommandRegistry.all`.
@@ -59,6 +63,22 @@ enum SlashCommandRegistry {
             subtitle: "Recent AI queries and answers",
             systemImage: "clock",
             presentation: .history
+        ),
+        SlashCommand(
+            id: "settings",
+            tokens: ["s", "settings"],
+            title: "Settings",
+            subtitle: "Open Simple Launcher settings",
+            systemImage: "gearshape",
+            presentation: .settings
+        ),
+        SlashCommand(
+            id: "update",
+            tokens: ["u", "update"],
+            title: "Check for Updates",
+            subtitle: "Look for a newer version of Simple Launcher",
+            systemImage: "arrow.down.circle",
+            presentation: .checkForUpdates
         ),
     ]
 

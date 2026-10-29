@@ -126,10 +126,33 @@ final class LauncherViewModel: ObservableObject {
         case .askAI(let prompt):
             ai.ask(prompt)
         case .slashCommand(let command):
-            query = "/\(command.primaryToken)"
+            run(command)
         case .historyEntry(let entry):
             overlayMode = .historyDetail(entry)
         }
+    }
+
+    /// A pane command fills in its token so the pane opens; an action command runs.
+    private func run(_ command: SlashCommand) {
+        switch command.presentation {
+        case .commandList, .history:
+            query = "/\(command.primaryToken)"
+        case .settings:
+            hideForWindow()
+            NotificationCenter.default.post(name: .launcherShowSettings, object: nil)
+        case .checkForUpdates:
+            hideForWindow()
+            AppUpdater.shared.checkForUpdates()
+        }
+    }
+
+    /// The window an action opens takes focus, so don't restore the previous app.
+    private func hideForWindow() {
+        NotificationCenter.default.post(
+            name: .launcherShouldHide,
+            object: nil,
+            userInfo: [LauncherHideOptions.restoreFocusKey: false]
+        )
     }
 
     func handleReturn() {
@@ -262,16 +285,23 @@ final class LauncherViewModel: ObservableObject {
             case .history:
                 presentHistory(filter: input.remainder)
                 return
-            case .commandList:
+            case .commandList, .settings, .checkForUpdates:
                 break
             }
         }
 
         overlayMode = .none
-        results = SlashCommandRegistry.matching(token: input.token).map { .slashCommand($0) }
+        results = SlashCommandRegistry.matching(token: input.token)
+            .filter(isAvailable)
+            .map { .slashCommand($0) }
         if selectedIndex >= results.count {
             selectedIndex = max(0, results.count - 1)
         }
+    }
+
+    /// A local build doesn't update, so it doesn't offer `/u`, as the menu doesn't.
+    private func isAvailable(_ command: SlashCommand) -> Bool {
+        command.presentation != .checkForUpdates || AppUpdater.shared.isRelease
     }
 
     private func presentHistory(filter: String) {

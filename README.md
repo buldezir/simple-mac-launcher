@@ -85,7 +85,8 @@ The app runs as a menu bar accessory (no Dock icon).
 | Ask AI (fallback) | Type something with no app matches → select Ask AI |
 | Browse AI history | `/h`, optionally `/h filter` |
 | Delete a history entry | **⌘⌫** on the highlighted entry, or hover → trash |
-| Settings | Menu bar → Settings…, or **⌘,** |
+| Settings | `/s`, menu bar → Settings…, or **⌘,** |
+| Check for updates | `/u`, or menu bar → Check for Updates… (release builds) |
 | Launch at login | Settings → Launch at login |
 | Dismiss | Esc or click outside (focus returns to the previous app) |
 
